@@ -46,8 +46,17 @@ std::string Logger::level_to_string(LogLevel level) const{
 }
 
 void Logger::log(LogLevel nivel, const std::string& mensagem){
-    if(nivel <= nivel_minimo)
-        std::cout << "[" << level_to_string(nivel) << "] " << mensagem << std::endl;
+    if(nivel <= nivel_minimo){
+        std::string cor;
+        switch(nivel){
+            case LogLevel::ERROR: cor = COR_VERMELHO; break;
+            case LogLevel::WARN:  cor = COR_AMARELO;  break;
+            case LogLevel::INFO:  cor = COR_CIANO;    break;
+            case LogLevel::DEBUG: cor = COR_VERDE;    break;
+            default:            cor = ANSI_COLOR_RESET;
+        }
+        std::cout << cor << "[" << level_to_string(nivel) << "] " << ANSI_COLOR_RESET << mensagem << std::endl;
+    }
 }
 
 void Logger::iniciar_timer(){

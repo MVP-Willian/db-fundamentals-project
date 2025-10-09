@@ -38,6 +38,13 @@ $(TEST_EXEC): $(TEST_SRC) $(LOGGER_SRC)
 build: $(EXECS) $(TEST_EXEC)
 	@echo "BUILD COMPLETO. Todos os binários estão em $(BIN_DIR)/"
 
+# Regra genérica para compilar os programas finais (upload, findrec, seek1, seek2)
+# % é um curinga. Esta regra ensina o make a transformar src/main_X.cpp em bin/X
+$(BIN_DIR)/%: $(SRC_DIR)/main_%.cpp $(LOGGER_SRC)
+	@echo "Compilando programa principal: $< -> $@"
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) -o $@
+
 # cria a imagem docker
 # dentro do dockerfile tem um RUN make build pra gerar os
 # binarios dentro do container :)

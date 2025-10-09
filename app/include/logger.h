@@ -25,6 +25,13 @@ enum LogLevel{
     DEBUG = 3
 };
 
+// Códigos ANSI para cores
+#define COR_VERMELHO     "\x1b[31m"
+#define COR_AMARELO  "\x1b[38;5;208m"
+#define COR_VERDE  "\x1b[32m"
+#define COR_CIANO    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+
 class Logger{
     private:
         //dicionario que traduz as strings para o enum de níveis
