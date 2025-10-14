@@ -7,9 +7,9 @@ TEST_DIR = test
 BIN_DIR = bin
 
 # Nomes dos arquivos de origem e destino
-TEST_SRC = $(TEST_DIR)/test_logger.cpp
+TESTS = test_logger test_artigo
+TESTS_EXEC = $(addprefix $(BIN_DIR)/, $(TESTS))
 LOGGER_SRC = $(SRC_DIR)/logger.cpp
-TEST_EXEC = $(BIN_DIR)/test_logger
 
 # Flags do compilador: -I$(INC_DIR) diz ao g++ onde procurar os .h
 CXX = g++
@@ -26,16 +26,16 @@ EXECS = $(addprefix $(BIN_DIR)/, $(PROGS))
 
 all: docker-build
 
-# regra unica para construir qualquer executável de teste
-# Ele depende dos arquivos .cpp do teste e do logger
-$(TEST_EXEC): $(TEST_SRC) $(LOGGER_SRC)
+# regra genérica para qualquer teste em test/*.cpp
+# transforma test/test_foo.cpp -> bin/test_foo
+$(BIN_DIR)/%: $(TEST_DIR)/%.cpp $(LOGGER_SRC)
 	@mkdir -p $(BIN_DIR)
-	@echo "Compilando: $< e $(LOGGER_SRC) -> $(TEST_EXEC)"
-	$(CXX) $(CXXFLAGS) $(TEST_SRC) $(LOGGER_SRC) -o $(TEST_EXEC)
+	@echo "Compilando teste: $< -> $@"
+	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) -o $@
 
 # aqui ele deve compilar todos os executaveis, por enquanto só o teste
 # ele compila localmente e nao manda para o docker
-build: $(EXECS) $(TEST_EXEC)
+build: $(EXECS) $(TESTS_EXEC)
 	@echo "BUILD COMPLETO. Todos os binários estão em $(BIN_DIR)/"
 
 # Regra genérica para compilar os programas finais (upload, findrec, seek1, seek2)
@@ -62,6 +62,11 @@ test: docker-build
 	docker run --rm \
 	    $(IMAGE_NAME) \
 	    bash -c 'LOG_LEVEL=debug /app/bin/test_logger'
+
+	@echo "Executando teste da classe artigo: LOG_LEVEL=debug"
+	docker run --rm \
+	    $(IMAGE_NAME) \
+	    bash -c 'LOG_LEVEL=debug /app/bin/test_artigo'
 
 # regra para limpar bin
 clean:

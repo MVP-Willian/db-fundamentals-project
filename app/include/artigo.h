@@ -10,10 +10,10 @@ class Artigo{
     */
     private:
         int id;
-        int ano;
-        int citacoes;
         std::string titulo;
+        int ano;
         std::string autores;
+        int citacoes;
         std::string atualizacao; //mudar pra data/hora ao inves de texto
         std::string snippet;
     
