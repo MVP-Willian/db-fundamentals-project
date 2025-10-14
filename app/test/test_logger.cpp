@@ -1,5 +1,3 @@
-#include <iostream>
-#include <unistd.h>
 #include "../include/logger.h"
 
 void simular_trabalho(Logger& log_sys, int segundos){

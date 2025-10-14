@@ -8,6 +8,7 @@
 #include <fstream>
 #include <algorithm>
 #include <cctype>
+#include <unistd.h>
 
 /**
  Autor: André Kaled Duarte Coutinho Andrade
