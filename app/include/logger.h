@@ -1,3 +1,6 @@
+#ifndef LOGGER_H
+#define LOGGER_H
+
 #include <iostream>
 #include <map>
 #include <string>
@@ -69,3 +72,5 @@ class Logger{
         void info(const std::string& mensagem){ log(LogLevel::INFO, mensagem); }
         void debug(const std::string& mensagem){ log(LogLevel::DEBUG, mensagem); }
 };
+
+#endif
