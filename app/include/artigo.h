@@ -1,8 +1,16 @@
 #ifndef ARTIGO_H
 #define ARTIGO_H
 
-#include <string>
+#include <array>
+#include <cstring>
+#include <cstdlib>
+#include <iostream>
+#include "utils.h"
 
+//tamanho fixo (N + 1 para o terminador nulo '\0')
+#define TAM_TITULO 301
+#define TAM_SNIPPET 1025
+#define TAM_AUTORES 151
 class Artigo{
     /**
      tem que ajustar os strings para arrays fixos depois,
@@ -10,44 +18,35 @@ class Artigo{
     */
     private:
         int id;
-        std::string titulo;
+        char titulo[TAM_TITULO];
         int ano;
-        std::string autores;
+        char autores[TAM_AUTORES];
         int citacoes;
-        std::string atualizacao; //mudar pra data/hora ao inves de texto
-        std::string snippet;
+        std::tm atualizacao;
+        char snippet[TAM_SNIPPET];
     
     public:
     Artigo() = default;
 
-    /* Lista de inicialização pro construtor, visto em 
-    https://www.learncpp.com/cpp-tutorial/constructor-member-initializer-lists/*/
     Artigo(int id, const std::string& titulo, int ano,
         const std::string& autores, int citacoes,
-        const std::string& atualizacao, const std::string& snippet):
-        id(id),
-        titulo(titulo),
-        ano(ano),
-        autores(autores),
-        citacoes(citacoes),
-        atualizacao(atualizacao),
-        snippet(snippet) {}
+        const std::string& atualizacao, const std::string& snippet);
 
     /** getters e setters */
     int getId() const { return id; }
     int getAno() const { return ano; }
     int getCitacoes() const { return citacoes; }
-    std::string getTitulo() const { return titulo; }
-    std::string getAutores() const { return autores; }
-    std::string getAtualizacao() const { return atualizacao; }
-    std::string getSnippet() const { return snippet; }
-    void setId(int v) { id = v; }
-    void setAno(int v) { ano = v; }
-    void setCitacoes(int v) { citacoes = v; }
-    void setTitulo(const std::string& v) { titulo = v; }
-    void setAutores(const std::string& v) { autores = v; }
-    void setAtualizacao(const std::string& v) { atualizacao = v; }
-    void setSnippet(const std::string& v) { snippet = v; }
+    std::string getTitulo() const { return std::string(titulo); }
+    std::string getAutores() const { return std::string(autores); }
+    std::string getAtualizacao() const { return tmParaString(atualizacao); }
+    std::string getSnippet() const { return std::string(snippet); }
+    void setId(int v);
+    void setAno(int v);
+    void setCitacoes(int v);
+    void setTitulo(const std::string& v);
+    void setAutores(const std::string& v);
+    void setAtualizacao(const std::string& v) { atualizacao = stringParaTm(v); }
+    void setSnippet(const std::string& v);
 };
 
 #endif

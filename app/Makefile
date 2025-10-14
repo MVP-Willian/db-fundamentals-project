@@ -10,6 +10,7 @@ BIN_DIR = bin
 TESTS = test_logger test_artigo
 TESTS_EXEC = $(addprefix $(BIN_DIR)/, $(TESTS))
 LOGGER_SRC = $(SRC_DIR)/logger.cpp
+ARTIGO_SRC = $(SRC_DIR)/artigo.cpp
 
 # Flags do compilador: -I$(INC_DIR) diz ao g++ onde procurar os .h
 CXX = g++
@@ -28,10 +29,10 @@ all: docker-build
 
 # regra genérica para qualquer teste em test/*.cpp
 # transforma test/test_foo.cpp -> bin/test_foo
-$(BIN_DIR)/%: $(TEST_DIR)/%.cpp $(LOGGER_SRC)
+$(BIN_DIR)/%: $(TEST_DIR)/%.cpp $(LOGGER_SRC) $(ARTIGO_SRC)
 	@mkdir -p $(BIN_DIR)
 	@echo "Compilando teste: $< -> $@"
-	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) -o $@
+	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(ARTIGO_SRC) -o $@
 
 # aqui ele deve compilar todos os executaveis, por enquanto só o teste
 # ele compila localmente e nao manda para o docker
@@ -40,10 +41,10 @@ build: $(EXECS) $(TESTS_EXEC)
 
 # Regra genérica para compilar os programas finais (upload, findrec, seek1, seek2)
 # % é um curinga. Esta regra ensina o make a transformar src/main_X.cpp em bin/X
-$(BIN_DIR)/%: $(SRC_DIR)/main_%.cpp $(LOGGER_SRC)
+$(BIN_DIR)/%: $(SRC_DIR)/main_%.cpp $(LOGGER_SRC) $(ARTIGO_SRC)
 	@echo "Compilando programa principal: $< -> $@"
 	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) -o $@
+	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(ARTIGO_SRC) -o $@
 
 # cria a imagem docker
 # dentro do dockerfile tem um RUN make build pra gerar os
