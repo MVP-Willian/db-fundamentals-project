@@ -48,20 +48,20 @@ class Logger{
         std::chrono::time_point<std::chrono::high_resolution_clock> tempo_inicio;
         
         // Retorna a string do nivel ("INFO") e garante que nao modifica o objeto Logger (const)
-        std::string level_to_string(LogLevel level) const;
+        std::string levelToString(LogLevel level) const;
 
     public:
         //Construtor da classe
         Logger();
 
         //inicia a contagem de tempo pra operacao atual
-        void iniciar_timer();
+        void iniciarTimer();
 
         //finaliza a contagem e mostra o tempo total em ms
-        void finalizar_timer(const std::string& operacao);
+        void finalizarTimer(const std::string& operacao);
 
         // log especifico para o requisito de blocos lidos
-        void log_blocos_lidos(const std::string& operacao, int blocos);
+        void logBlocosLidos(const std::string& operacao, int blocos);
 
         //funcoes de log com cada nivel, quem valida qual log sera impresso vai
         //ser a funcao log

@@ -12,10 +12,6 @@
 #define TAM_SNIPPET 1025
 #define TAM_AUTORES 151
 class Artigo{
-    /**
-     tem que ajustar os strings para arrays fixos depois,
-     olhar como funciona os arrays de caracteres em cpp
-    */
     private:
         int id;
         char titulo[TAM_TITULO];

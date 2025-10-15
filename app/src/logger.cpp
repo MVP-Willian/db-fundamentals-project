@@ -35,7 +35,7 @@ Logger::Logger(){
     }
 }
 
-std::string Logger::level_to_string(LogLevel level) const{
+std::string Logger::levelToString(LogLevel level) const{
     switch(level){
         case LogLevel::ERROR: return "ERROR";
         case LogLevel::WARN:  return "WARN ";
@@ -55,15 +55,15 @@ void Logger::log(LogLevel nivel, const std::string& mensagem){
             case LogLevel::DEBUG: cor = COR_VERDE;    break;
             default:            cor = ANSI_COLOR_RESET;
         }
-        std::cout << cor << "[" << level_to_string(nivel) << "] " << ANSI_COLOR_RESET << mensagem << std::endl;
+        std::cout << cor << "[" << levelToString(nivel) << "] " << ANSI_COLOR_RESET << mensagem << std::endl;
     }
 }
 
-void Logger::iniciar_timer(){
+void Logger::iniciarTimer(){
     tempo_inicio = std::chrono::high_resolution_clock::now();
 }
 
-void Logger::finalizar_timer(const std::string& operacao){
+void Logger::finalizarTimer(const std::string& operacao){
     auto tempo_fim = std::chrono::high_resolution_clock::now();
 
     auto duracao = std::chrono::duration_cast<std::chrono::milliseconds>(tempo_fim - tempo_inicio).count();
@@ -71,7 +71,7 @@ void Logger::finalizar_timer(const std::string& operacao){
     this->info("Tempo de execução da operação '" +operacao +"': " +std::to_string(duracao) +"ms");
 }
 
-void Logger::log_blocos_lidos(const std::string& operacao, int blocos_lidos) {
+void Logger::logBlocosLidos(const std::string& operacao, int blocos_lidos) {
     // Requisito: Quantidade de blocos lidos por operação [cite: 103]
     this->info("Mensuração (" + operacao + "): Blocos Lidos: " + std::to_string(blocos_lidos));
 }
