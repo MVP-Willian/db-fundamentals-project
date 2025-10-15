@@ -7,10 +7,11 @@ TEST_DIR = test
 BIN_DIR = bin
 
 # Nomes dos arquivos de origem e destino
-TESTS = test_logger test_artigo
+TESTS = test_logger test_artigo test_diskManager
 TESTS_EXEC = $(addprefix $(BIN_DIR)/, $(TESTS))
 LOGGER_SRC = $(SRC_DIR)/logger.cpp
 ARTIGO_SRC = $(SRC_DIR)/artigo.cpp
+DISKMANAGER_SRC = $(SRC_DIR)/diskManager.cpp
 
 # Flags do compilador: -I$(INC_DIR) diz ao g++ onde procurar os .h
 CXX = g++
@@ -29,10 +30,10 @@ all: docker-build
 
 # regra genérica para qualquer teste em test/*.cpp
 # transforma test/test_foo.cpp -> bin/test_foo
-$(BIN_DIR)/%: $(TEST_DIR)/%.cpp $(LOGGER_SRC) $(ARTIGO_SRC)
+$(BIN_DIR)/%: $(TEST_DIR)/%.cpp $(LOGGER_SRC) $(ARTIGO_SRC) $(DISKMANAGER_SRC)
 	@mkdir -p $(BIN_DIR)
 	@echo "Compilando teste: $< -> $@"
-	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(ARTIGO_SRC) -o $@
+	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(ARTIGO_SRC) $(DISKMANAGER_SRC) -o $@
 
 # aqui ele deve compilar todos os executaveis, por enquanto só o teste
 # ele compila localmente e nao manda para o docker
@@ -41,10 +42,10 @@ build: $(EXECS) $(TESTS_EXEC)
 
 # Regra genérica para compilar os programas finais (upload, findrec, seek1, seek2)
 # % é um curinga. Esta regra ensina o make a transformar src/main_X.cpp em bin/X
-$(BIN_DIR)/%: $(SRC_DIR)/main_%.cpp $(LOGGER_SRC) $(ARTIGO_SRC)
+$(BIN_DIR)/%: $(SRC_DIR)/main_%.cpp $(LOGGER_SRC) $(ARTIGO_SRC) $(DISKMANAGER_SRC)
 	@echo "Compilando programa principal: $< -> $@"
 	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(ARTIGO_SRC) -o $@
+	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(ARTIGO_SRC) $(DISKMANAGER_SRC) -o $@
 
 # cria a imagem docker
 # dentro do dockerfile tem um RUN make build pra gerar os
@@ -60,14 +61,12 @@ docker-rebuild:
 # constroi a imagem se precisar e executa os testes
 test: docker-build
 	@echo "Executando teste de log: LOG_LEVEL=debug"
-	docker run --rm \
-	    $(IMAGE_NAME) \
-	    bash -c 'LOG_LEVEL=debug /app/bin/test_logger'
+	docker run --rm $(IMAGE_NAME) /app/bin/test_logger
 
-	@echo "Executando teste da classe artigo: LOG_LEVEL=debug"
-	docker run --rm \
-	    $(IMAGE_NAME) \
-	    bash -c 'LOG_LEVEL=debug /app/bin/test_artigo'
+	@echo "Executando teste da classe Artigo: LOG_LEVEL=debug"
+	docker run --rm $(IMAGE_NAME) /app/bin/test_artigo
+	@echo "Executando teste da classe DiskManager: LOG_LEVEL=debug"
+	docker run --rm $(IMAGE_NAME) /app/bin/test_diskManager
 
 # regra para limpar bin
 clean:
