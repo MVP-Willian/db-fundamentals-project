@@ -1,5 +1,5 @@
 # exemplo base: pode usar debian:bookworm-slim ou ubuntu:24.04
-FROM debian:bookworm-slim
+FROM ubuntu:24.04
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       g++ make cmake && \
@@ -10,6 +10,7 @@ COPY . /app
 
 # compile usando Makefile padrão (ajuste conforme seu build)
 RUN make build
+RUN ls -l /app/bin
 
 # diretório para dados persistentes (montado como volume)
 VOLUME ["/data"]
