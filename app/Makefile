@@ -7,7 +7,7 @@ TEST_DIR = test
 BIN_DIR = bin
 
 # Nomes dos arquivos de origem e destino
-TESTS = test_logger test_artigo test_diskManager test_parser
+TESTS = test_logger test_artigo test_diskManager test_parser test_bplus
 TESTS_EXEC = $(addprefix $(BIN_DIR)/, $(TESTS))
 LOGGER_SRC = $(SRC_DIR)/logger.cpp
 ARTIGO_SRC = $(SRC_DIR)/artigo.cpp
@@ -78,12 +78,14 @@ test: docker-build
 	@echo "Executando teste de log: LOG_LEVEL=debug"
 	docker run --rm $(IMAGE_NAME) /app/bin/test_logger
 
-	@echo "Executando teste da classe Artigo: LOG_LEVEL=debug"
+	@echo "Executando teste da classe Artigo"
 	docker run --rm $(IMAGE_NAME) /app/bin/test_artigo
-	@echo "Executando teste da classe DiskManager: LOG_LEVEL=debug"
+	@echo "Executando teste da classe DiskManager"
 	docker run --rm $(IMAGE_NAME) /app/bin/test_diskManager
-	@echo "Executando teste de Parser: LOG_LEVEL=debug"
+	@echo "Executando teste de Parser"
 	docker run --rm $(IMAGE_NAME) /app/bin/test_parser
+	@echo "Executando teste de B+tree"
+	docker run --rm $(IMAGE_NAME) /app/bin/test_bplus
 
 # regra para limpar bin
 clean:

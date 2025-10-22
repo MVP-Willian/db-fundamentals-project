@@ -3,6 +3,7 @@
 
 #include "RecordID.h"
 #include <vector>
+#include <iostream>
 
 /**
     O no deve conter uma lista de chaves, ponteiros para os no-filhos
@@ -40,7 +41,7 @@ public:
     //tipo do no ne
     TipoNo tipo;
 
-    No(TipoNo t = tipoNo::FOLHA): tipo(t) {}
+    No(TipoNo t = TipoNo::FOLHA): tipo(t) {}
     ~No(){}
 
     void print() {

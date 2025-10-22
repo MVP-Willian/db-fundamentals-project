@@ -31,7 +31,7 @@ private:
             converte em objeto No<T>
             retorna nó alocado
         */
-        log.debug("Lendo nó da página com ID " <<id_pagina);
+        log.debug("Lendo nó da página com ID " +std::to_string(id_pagina));
         //codigo aq
     }
 
@@ -43,7 +43,7 @@ private:
             procura a posição certa pra colocar (no->minha_pagina_id  tam_bloco)
             escreve o buffer no disco (usar diskManager)
         */
-        log.debug("Salvando nó da página com ID " << no->minha_pagina_id);
+        log.debug("Salvando nó da página com ID " +std::to_string(no->minha_pagina_id));
     }
 
     //busca o no folha onde a chave deve ser buscada/inserida
@@ -70,7 +70,7 @@ public:
             raiz.minha_pagina_id = id_pagina_raiz;
             raiz.prox_pagina_id = -1;
 
-            salvarNo(raiz);
+            salvarNo(&raiz);
 
             //maracutaia dos dados do buffer que vai pro disco (metadados)
             std::memset(meta, 0, TAM_BLOCO);
