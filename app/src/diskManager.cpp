@@ -10,6 +10,9 @@ log(logger), path(path)
     } catch (const std::exception& e) {
         log.error("Erro ao criar diretório: " + std::string(e.what()));
     }    
+
+    bool arquivo_novo = false;
+
     file.open(path,std::ios::binary | std::ios::in | std::ios::out);
     log.debug("Inicializando DiskManager com arquivo: " + path);
 
@@ -17,15 +20,25 @@ log(logger), path(path)
     if(!file.is_open()){
         log.warn("Arquivo nao encontrado, tentando criar: " +path);
         file.open(path, std::ios::binary | std::ios::out);
-        file.close();
-        file.open(path,std::ios::binary | std::ios::in | std::ios::out);
+        if(file.is_open()){
+            arquivo_novo = true;
+            file.close();
+            file.open(path,std::ios::binary | std::ios::in | std::ios::out);
+        }
     }
 
     if(!file.is_open()){
         log.error("Falha ao abrir o arquivo de disco: " +path);
-    }else{
-        log.info("Arquivo " +path +" aberto com sucesso!");
+        return;
     }
+    log.info("Arquivo " +path +" aberto com sucesso!");
+    if(arquivo_novo){
+        char buffer_metadados[BLOCK_SIZE] = {0};
+        writeBlock(0, buffer_metadados);
+        file.clear();
+        file.seekp(0, std::ios::beg);
+    }
+    
 }
 
 DiskManager::~DiskManager(){
@@ -42,7 +55,7 @@ void DiskManager::readBlock(int id_block, char* buffer){
     }
 
     // move o ponteiro de escrita para o bloco correto
-    file.seekp(id_block * BLOCK_SIZE, std::ios::beg);
+    file.seekg(id_block * BLOCK_SIZE, std::ios::beg);
     file.read(buffer, BLOCK_SIZE);
 
     if(!file){

@@ -15,7 +15,7 @@ int main(){
         return 1;
     }
 
-    while(std::getline(arq, linha) && cont < 50){
+    while(std::getline(arq, linha) && cont < 5){
         cont++;
         Artigo art = parseArtigo(linha);
         log_sys.info("Verificando dados:");
