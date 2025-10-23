@@ -60,8 +60,10 @@ int main(int argc, char**argv){
                 log_sys.warn("Título truncado na linha " + std::to_string(linhaNum));
                 truncados++;
 
-            if (dadosIncompletos)
-                log_sys.warn("Possível problema na linha " + std::to_string(linhaNum) + ": " + motivos);
+            if (dadosIncompletos){
+                log_sys.warn("Possível problema no artigo de ID " +std::to_string(art.getId()) + ": " + motivos);
+                log_sys.warn(linha);
+            }
 
             log_sys.debug("Linha: " +std::to_string(linhaNum) +"Parseada com sucesso");
             log_sys.debug("ID [" +std::to_string(art.getId()) +"] Titulo: " +art.getTitulo());

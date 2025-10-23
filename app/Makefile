@@ -1,4 +1,4 @@
-.PHONY: test clean build
+.PHONY: test clean build docker-build docker-rebuild
 
 # Diretórios
 INC_DIR = include
@@ -67,6 +67,8 @@ docker-build:
 
 # refaz a imagem toda
 docker-rebuild:
+	-docker ps -q --filter "ancestor=$(IMAGE_NAME)" | xargs -r docker stop
+	-docker ps -a -q --filter "ancestor=$(IMAGE_NAME)" | xargs -r docker rm
 	@echo "Reconstruindo imagem docker ($(IMAGE_NAME))"
 	docker build . -t tp2-teste --no-cache
 
