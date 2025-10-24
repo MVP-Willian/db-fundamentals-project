@@ -73,21 +73,22 @@ docker-rebuild:
 	docker build . -t tp2-teste --no-cache
 
 # Para adicionar novos testes, copie uma linha, mude o echo e o binário.
+# executa os testes via docker, corrigindo problemas de espaço no caminho
 test: docker-build
 	@echo "Executando teste de log: LOG_LEVEL=debug"
-	docker run --rm $(IMAGE_NAME) /app/bin/test_logger
+	docker run --rm -v "$(PWD)/dados:/data" $(IMAGE_NAME) /app/bin/test_logger
 
 	@echo "Executando teste da classe Artigo"
-	docker run --rm $(IMAGE_NAME) /app/bin/test_artigo
+	docker run --rm -v "$(PWD)/dados:/data" $(IMAGE_NAME) /app/bin/test_artigo
 
 	@echo "Executando teste da classe DiskManager"
-	docker run --rm $(IMAGE_NAME) /app/bin/test_diskManager
+	docker run --rm -v "$(PWD)/dados:/data" $(IMAGE_NAME) /app/bin/test_diskManager
 
 	@echo "Executando teste de Parser"
-	docker run --rm $(IMAGE_NAME) /app/bin/test_parser
+	docker run --rm -v "$(PWD)/dados:/data" $(IMAGE_NAME) /app/bin/test_parser
 	
 	@echo "Executando teste de B+tree"
-	docker run --rm $(IMAGE_NAME) /app/bin/test_bplus
+	docker run --rm -v "$(PWD)/dados:/data" $(IMAGE_NAME) /app/bin/test_bplus
 
 # regra para limpar bin
 clean:
