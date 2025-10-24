@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  arvore:
+    build: .
+    container_name: arvore_bplus
+    volumes:
+      - ./dados:/data
+    tty: true
