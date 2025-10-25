@@ -24,7 +24,7 @@ CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++17 -I$(INC_DIR)
 
 # nome da imagem docker
-IMAGE_NAME = tp2-teste
+IMAGE_NAME = tp2
 
 # Nomes dos executáveis FINAIS (Requisitos do TP2)
 #PROGS = upload findrec seek1 seek2
@@ -64,10 +64,10 @@ build: $(EXECS) $(TESTS_EXEC)
 # execuções via docker:
 upload:
 	mkdir -p data/db
-	docker run --rm -v $(PWD)/data:/data tp2-teste /app/bin/upload $(FILE)
+	docker run --rm -v $(PWD)/data:/data $(IMAGE_NAME) /app/bin/upload $(FILE)
 
 seek1:
-	docker run --rm -v $(PWD)/data:/data tp2-teste /app/bin/seek1 $(ID)
+	docker run --rm -v $(PWD)/data:/data $(IMAGE_NAME) /app/bin/seek1 $(ID)
 
 # cria a imagem docker e executa o make build acima, mas dentro do container
 docker-build:
@@ -79,7 +79,7 @@ docker-rebuild:
 	-docker ps -q --filter "ancestor=$(IMAGE_NAME)" | xargs -r docker stop
 	-docker ps -a -q --filter "ancestor=$(IMAGE_NAME)" | xargs -r docker rm
 	@echo "Reconstruindo imagem docker ($(IMAGE_NAME))"
-	docker build . -t tp2-teste --no-cache
+	docker build . -t $(IMAGE_NAME) --no-cache
 
 # Para adicionar novos testes, copie uma linha, mude o echo e o binário.
 # executa os testes via docker, corrigindo problemas de espaço no caminho

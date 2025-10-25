@@ -3,6 +3,7 @@
 #include "bplus.h"
 #include <fstream>
 #include <iostream>
+#include <filesystem>
 
 // Índice Primário: Chave=int, Dado=long (offset)
 const int ORDEM_FOLHA_PRIMARIO = (BLOCK_SIZE - sizeof(CabecalhoPagina) - sizeof(int)) / (sizeof(int) + sizeof(long));
@@ -11,6 +12,7 @@ const int ORDEM_INTERNA_PRIMARIO = (BLOCK_SIZE - sizeof(CabecalhoPagina)) / (siz
 
 int main(int argc, char**argv){
     Logger log_sys;
+    std::filesystem::remove("/data/db/bplus_primario.idx");
     DiskManager diskPrimario("/data/db/bplus_primario.idx", log_sys);
 
     if(argc < 2){
