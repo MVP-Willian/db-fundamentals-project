@@ -28,7 +28,7 @@ IMAGE_NAME = tp2-teste
 
 # Nomes dos executáveis FINAIS (Requisitos do TP2)
 #PROGS = upload findrec seek1 seek2
-PROGS = upload
+PROGS = upload seek1
 EXECS = $(addprefix $(BIN_DIR)/, $(PROGS))
 
 all: docker-build
@@ -48,9 +48,14 @@ $(BIN_DIR)/upload: $(SRC_DIR)/upload.cpp $(LOGGER_SRC) $(ARTIGO_SRC) $(DISKMANAG
 	@mkdir -p $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(ARTIGO_SRC) $(DISKMANAGER_SRC) $(PARSER_SRC) -o $@
 
+$(BIN_DIR)/seek1: $(SRC_DIR)/seek1.cpp $(LOGGER_SRC)
+	@echo "Compilando seek1: $< -> $@"
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(DISKMANAGER_SRC) -o $@
 
 # caminho padrao do csv, pode ser sobreescrito (make upload FILE=outro.csv)
 FILE ?= data/artigo.csv
+ID ?= 1
 
 # compila todos os executaveis e testes (fora do docker)
 build: $(EXECS) $(TESTS_EXEC) 
@@ -58,7 +63,11 @@ build: $(EXECS) $(TESTS_EXEC)
 
 # execuções via docker:
 upload:
-	docker run --rm -v /data:/data tp2-teste /app/bin/upload $(FILE)
+	mkdir -p data/db
+	docker run --rm -v $(PWD)/data:/data tp2-teste /app/bin/upload $(FILE)
+
+seek1:
+	docker run --rm -v $(PWD)/data:/data tp2-teste /app/bin/seek1 $(ID)
 
 # cria a imagem docker e executa o make build acima, mas dentro do container
 docker-build:
@@ -76,19 +85,19 @@ docker-rebuild:
 # executa os testes via docker, corrigindo problemas de espaço no caminho
 test: docker-build
 	@echo "Executando teste de log: LOG_LEVEL=debug"
-	docker run --rm -v "$(PWD)/dados:/data" $(IMAGE_NAME) /app/bin/test_logger
+	docker run --rm -v "$(PWD)/data:/data" $(IMAGE_NAME) /app/bin/test_logger
 
 	@echo "Executando teste da classe Artigo"
-	docker run --rm -v "$(PWD)/dados:/data" $(IMAGE_NAME) /app/bin/test_artigo
+	docker run --rm -v "$(PWD)/data:/data" $(IMAGE_NAME) /app/bin/test_artigo
 
 	@echo "Executando teste da classe DiskManager"
-	docker run --rm -v "$(PWD)/dados:/data" $(IMAGE_NAME) /app/bin/test_diskManager
+	docker run --rm -v "$(PWD)/data:/data" $(IMAGE_NAME) /app/bin/test_diskManager
 
 	@echo "Executando teste de Parser"
-	docker run --rm -v "$(PWD)/dados:/data" $(IMAGE_NAME) /app/bin/test_parser
+	docker run --rm -v "$(PWD)/data:/data" $(IMAGE_NAME) /app/bin/test_parser
 	
 	@echo "Executando teste de B+tree"
-	docker run --rm -v "$(PWD)/dados:/data" $(IMAGE_NAME) /app/bin/test_bplus
+	docker run --rm -v "$(PWD)/data:/data" $(IMAGE_NAME) /app/bin/test_bplus
 
 # regra para limpar bin
 clean:

@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include <filesystem>
+#include <cstring>
 #include <string>
 #include "logger.h"
 

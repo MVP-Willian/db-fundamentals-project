@@ -1,7 +1,7 @@
 #include "diskManager.h"
 
 DiskManager::DiskManager(const std::string& path, Logger& logger):
-log(logger), path(path)
+path(path),log(logger)
 {
     try {
         std::filesystem::path diretorio(path);
@@ -53,13 +53,14 @@ void DiskManager::readBlock(int id_block, char* buffer){
         log.error("Tentativa de ler o bloco, mas o arquivo não tá aberto");
         return;
     }
-
+    memset(buffer, 0, BLOCK_SIZE);
     // move o ponteiro de escrita para o bloco correto
     file.seekg(id_block * BLOCK_SIZE, std::ios::beg);
     file.read(buffer, BLOCK_SIZE);
 
     if(!file){
         log.error("Falha ao ler o bloco " + std::to_string(id_block));
+        file.clear();
     } else {
         blocos_lidos++;
         log.debug("Bloco " + std::to_string(id_block) + " lido com sucesso");
@@ -75,9 +76,11 @@ void DiskManager::writeBlock(int id_block, const char* buffer){
     // move o ponteiro de escrita para o bloco correto
     file.seekp(id_block * BLOCK_SIZE, std::ios::beg);
     file.write(buffer, BLOCK_SIZE);
+    file.flush();
 
     if(!file){
         log.error("Falha ao escrever o bloco " + std::to_string(id_block));
+        file.clear();
     } else {
         log.debug("Bloco " + std::to_string(id_block) + " escrito com sucesso");
     }
@@ -85,7 +88,7 @@ void DiskManager::writeBlock(int id_block, const char* buffer){
 
 long DiskManager::getTotalBlocks(){
     if(!file.is_open()) return -1;
-    file.seekp(0, std::ios::end);
+    file.seekg(0, std::ios::end);
     auto tam = file.tellg();
     return tam/BLOCK_SIZE;
 }
