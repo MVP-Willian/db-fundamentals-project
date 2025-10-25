@@ -2,6 +2,7 @@
 #include <string>
 #include <stdexcept>
 #include <queue>
+#include <fstream>
 #include "logger.h"
 
 template <typename Chave, typename Dado>
@@ -27,6 +28,9 @@ public:
     NoInterno(int ordem) : No<Chave, Dado>(ordem, false) {
         this->filhos = new No<Chave, Dado>*[2 * ordem + 2]; // 2t+1 filhos possiveis
     }
+    ~NoInterno() {
+        delete[] this->filhos;
+    }
 };
 
 template <typename Chave, typename Dado>
@@ -38,7 +42,10 @@ public:
     NoFolha(int ordem) : No<Chave, Dado>(ordem, true), proximo(nullptr) {
         this->dados = new Dado[2 * ordem + 1]; // armazenamento para os dados
     }
-    // Implementação de Busca/Inserção/Remoção específica para nó folha (armazena dados)
+
+    ~NoFolha() {
+        delete[] this->dados;
+    }
 };
 
 //pra imprimir qualquer coisa desse fresco de string e int
@@ -175,9 +182,144 @@ private:
         return s;
     }
 
+    //salva e le os tipos de nós da b+ do arquivo pq string é complexo e int é normal
+    template<typename T>
+    void salvarTipo(std::ofstream& out, const T& valor) {
+        if constexpr (std::is_same_v<T, std::string>) {
+            // se é string, salva o tamanho e depois os dados
+            size_t len = valor.length();
+            out.write(reinterpret_cast<const char*>(&len), sizeof(len));
+            out.write(valor.c_str(), len);
+        } else {
+            // assume q é tipo simples (int long double)
+            out.write(reinterpret_cast<const char*>(&valor), sizeof(T));
+        }
+    }
+
+    template<typename T>
+    void carregarTipo(std::ifstream& in, T& valor) {
+        if constexpr (std::is_same_v<T, std::string>) {
+            // Se for string, lê o tamanho e depois os dados
+            size_t len;
+            in.read(reinterpret_cast<char*>(&len), sizeof(len));
+            char* buffer = new char[len + 1];
+            in.read(buffer, len);
+            buffer[len] = '\0';
+            valor = buffer;
+            delete[] buffer;
+        } else {
+            in.read(reinterpret_cast<char*>(&valor), sizeof(T));
+        }
+    }
+
+    // salva a arvore recursivamente (pre-ordem)
+    void salvarRec(std::ofstream& out, No<Chave, Dado>* no) {
+        if (no == nullptr) {
+            bool nulo = true;
+            out.write(reinterpret_cast<const char*>(&nulo), sizeof(nulo));
+            return;
+        }
+
+        bool nulo = false;
+        out.write(reinterpret_cast<const char*>(&nulo), sizeof(nulo));
+
+        out.write(reinterpret_cast<const char*>(&no->folha), sizeof(no->folha));
+        out.write(reinterpret_cast<const char*>(&no->numChaves), sizeof(no->numChaves));
+
+        for (int i = 0; i < no->numChaves; i++) {
+            salvarTipo(out, no->chaves[i]);
+        }
+
+        if (no->folha) {
+            auto folha = dynamic_cast<NoFolha<Chave, Dado>*>(no);
+            for (int i = 0; i < no->numChaves; i++) {
+                // aqui salva o dado (offset/ID_bloco)
+                salvarTipo(out, folha->dados[i]);
+            }
+        } else {
+            auto interno = dynamic_cast<NoInterno<Chave, Dado>*>(no);
+            for (int i = 0; i <= interno->numChaves; i++) {
+                salvarRec(out, interno->filhos[i]);
+            }
+        }
+    }
+
+    // carrega a arvore recursivamente (pre-ordem)
+    No<Chave, Dado>* carregarRec(std::ifstream& in) {
+        bool nulo;
+        in.read(reinterpret_cast<char*>(&nulo), sizeof(nulo));
+        if (nulo) {
+            return nullptr;
+        }
+
+        bool folha;
+        int numChaves;
+        in.read(reinterpret_cast<char*>(&folha), sizeof(folha));
+        in.read(reinterpret_cast<char*>(&numChaves), sizeof(numChaves));
+
+        No<Chave, Dado>* no;
+        if (folha) {
+            no = new NoFolha<Chave, Dado>(ordem);
+        } else {
+            no = new NoInterno<Chave, Dado>(ordem);
+        }
+        no->numChaves = numChaves;
+
+        for (int i = 0; i < numChaves; i++) {
+            carregarTipo(in, no->chaves[i]);
+        }
+
+        if (folha) {
+            auto f = dynamic_cast<NoFolha<Chave, Dado>*>(no);
+            for (int i = 0; i < numChaves; i++) {
+                // le e carrega dado (offset/ID_bloco)
+                carregarTipo(in, f->dados[i]);
+            }
+        } else {
+            auto f = dynamic_cast<NoInterno<Chave, Dado>*>(no);
+            for (int i = 0; i <= numChaves; i++) {
+                f->filhos[i] = carregarRec(in);
+            }
+        }
+        return no;
+    }
+
+    // dps de carregar pra ram, precisa refazer a lista de proximo
+    void reconstruirLinksFolhas(No<Chave, Dado>* no, NoFolha<Chave, Dado>** ultimaFolha) {
+        if (!no) return;
+
+        if (no->folha) {
+            auto folha = dynamic_cast<NoFolha<Chave, Dado>*>(no);
+            if (*ultimaFolha) {
+                (*ultimaFolha)->proximo = folha;
+            }
+            *ultimaFolha = folha;
+        } else {
+            auto interno = dynamic_cast<NoInterno<Chave, Dado>*>(no);
+            for (int i = 0; i <= interno->numChaves; i++) {
+                reconstruirLinksFolhas(interno->filhos[i], ultimaFolha);
+            }
+        }
+    }
+
+    //limpa lixo
+    void limpar(No<Chave, Dado>* no) {
+        if (!no) return;
+        if (!no->folha) {
+            auto interno = dynamic_cast<NoInterno<Chave, Dado>*>(no);
+            for (int i = 0; i <= no->numChaves; i++) {
+                limpar(interno->filhos[i]);
+            }
+        }
+        delete no;
+    }
 
 public:
     BPlusTree(int t) : raiz(nullptr), ordem(t) {}
+
+    ~BPlusTree() {
+        limpar(raiz);
+    }
 
     //tipo uma api pra chamar o inserirRec
     void inserir(const Chave& chave, const Dado& dado) {
@@ -207,6 +349,11 @@ public:
 
     // busca o dado na arvore
     Dado buscar(const Chave& chave) {
+        //se n tem raiz vai dar erro ne bobao
+        if (!raiz) {
+            throw std::runtime_error("Chave não encontrada (árvore vazia)");
+        }
+
         No<Chave, Dado>* atual = raiz;
         logger.debug("Buscando chave " + to_string_generic(chave) + " no nó " + imprimirChaves(atual));
         while (atual && !atual->folha) {
@@ -292,6 +439,47 @@ public:
             folha = folha->proximo;
         }
         std::cout << "\n";
+    }
+    
+    void salvar(const std::string& path) {
+        std::ofstream out(path, std::ios::binary);
+        if (!out) {
+            throw std::runtime_error("Erro ao abrir arquivo para salvar: " + path);
+        }
+        
+        // salva a ordem t primeiro para saber como reconstroi
+        out.write(reinterpret_cast<const char*>(&ordem), sizeof(ordem));
+        
+        //salva recursivo
+        salvarRec(out, raiz);
+        
+        out.close();
+        logger.info("Árvore salva com sucesso em " + path);
+    }
+
+    //carrega a arvore do arquivo de indices e joga pra ram (a arvore)
+    void carregar(const std::string& path) {
+        std::ifstream in(path, std::ios::binary);
+        if (!in) {
+            logger.warn("Arquivo de índice não encontrado: " + path + ". Iniciando com árvore vazia.");
+            return;
+        }
+
+        //tira lixo
+        limpar(raiz);
+        raiz = nullptr;
+
+        in.read(reinterpret_cast<char*>(&ordem), sizeof(ordem));
+
+        raiz = carregarRec(in);
+
+        in.close();
+
+        // Recria a lista encadeada proximo
+        NoFolha<Chave, Dado>* ultimaFolha = nullptr;
+        reconstruirLinksFolhas(raiz, &ultimaFolha);
+
+        logger.info("Árvore carregada com sucesso de " + path);
     }
 
 };
