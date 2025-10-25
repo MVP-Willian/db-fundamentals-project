@@ -18,7 +18,7 @@ VOLUME ["/data"]
 # variáveis de ambiente para facilitar testes
 ENV CSV_PATH=/data/input.csv \
     DATA_DIR=/data/db \
-    LOG_LEVEL=debug
+    LOG_LEVEL=info
 
 # por padrão, mostra ajuda dos binários
 CMD ["bash", "-c", "echo 'Use: docker run ... upload|findrec|seek1|seek2'; ls -l bin/"]
