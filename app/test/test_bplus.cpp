@@ -89,8 +89,7 @@ int main() {
                                  ", esperado " + std::to_string(e.second) + ". Blocos lidos: " + std::to_string(blocosLidos));
                     sucesso = false;
                 } else {
-                    logger.info("Busca OK: " + std::to_string(e.first) + " -> " + std::to_string(valor) +
-                                ". Blocos lidos: " + std::to_string(blocosLidos));
+                    logger.debug("Busca OK: " + std::to_string(e.first) + " -> " + std::to_string(valor));
                 }
             } catch (const std::exception &ex) {
                 logger.error("Chave " + std::to_string(e.first) + " não encontrada! " + ex.what());
@@ -103,7 +102,7 @@ int main() {
         else
             logger.warn("Algumas buscas no Índice Primário falharam!");
 
-        logger.info("Número total de blocos no arquivo de índice primário: " + std::to_string(dm1.getTotalBlocks()));
+        logger.debug("Número total de blocos no arquivo de índice primário: " + std::to_string(dm1.getTotalBlocks()));
     }
 
     //Teste 2: Índice Secundário <ChaveTitulo, int>
@@ -112,12 +111,12 @@ int main() {
     logger.info("Ordem Folha: " + std::to_string(ORDEM_FOLHA_SECUNDARIO));
     {
         DiskManager dm2(ARQUIVO_IDX_SECUNDARIO, logger);
-        BPlusTree<ChaveTitulo, int, ORDEM_INTERNA_SECUNDARIO, ORDEM_FOLHA_SECUNDARIO> arvore2(dm2, logger);
+        BPlusTree<ChaveTitulo, int, ORDEM_INTERNA_SECUNDARIO, ORDEM_FOLHA_SECUNDARIO> arvore2(dm2, logger, false);
 
         std::vector<std::pair<std::string, int>> elementos_str = {
             {"Um título", 1111}, {"Outro título", 2222}, {"título bacanudo", 3333},
             {"título daora", 4444}, {"título paia", 5555}, {"título meio paia", 6666},
-            {"Artigo Z", 7777}, {"Artigo A", 8888}, {"AAA", 8888}, {"BBB", 8888}, {"C", 8888}
+            {"Artigo Z", 7777}, {"Artigo A", 8888}, {"AAA", 8888}, {"AAA", 7777}, {"AAA", 6666}
             , {"D", 8888}, {"E", 8888}, {"F", 8888}, {"G", 8888}, {"H", 8888}
         };
 
@@ -127,37 +126,65 @@ int main() {
         }
         arvore2.flushBuffer();
 
-        logger.info("Testando buscas (On-Disk)...");
+        logger.info("Testando buscas...");
         bool sucesso_str = true;
         for (auto &e : elementos_str) {
-             try {
-                ChaveTitulo chaveBusca(e.first);
-                std::pair<int, int> resultado = arvore2.buscar(chaveBusca);
-                int valor = resultado.first;
-                int blocosLidos = resultado.second;
+            try {
+                auto [valores, blocosLidos] = arvore2.buscarTodos(ChaveTitulo(e.first));
 
-                if (valor != e.second) {
-                    logger.error("Chave '" + e.first + "' retornou ID " + std::to_string(valor) +
-                                 ", esperado " + std::to_string(e.second) + ". Blocos lidos: " + std::to_string(blocosLidos));
+                if (valores.empty()) {
+                    logger.error("Chave '" + e.first + "' não encontrada! Blocos lidos: " + std::to_string(blocosLidos));
                     sucesso_str = false;
                 } else {
-                    logger.info("Busca OK: '" + e.first + "' -> " + std::to_string(valor) +
-                                ". Blocos lidos: " + std::to_string(blocosLidos));
+                    // Loga todos os valores encontrados para essa chave
+                    std::string listaValores;
+                    for (auto v : valores) listaValores += std::to_string(v) + " ";
+                    logger.debug("Chave '" + e.first + "' encontrada com " + std::to_string(valores.size()) +
+                                " registro(s). Valores: [" + listaValores + "]");
                 }
             } catch (const std::exception &ex) {
-                logger.error("Chave '" + e.first + "' não encontrada! " + ex.what());
+                logger.error("Erro ao buscar chave '" + e.first + "': " + std::string(ex.what()));
                 sucesso_str = false;
             }
         }
 
-         // Teste com chave inexistente
+        //busca com duplicatas (titulo=AAA)
+        logger.info("Testando busca com duplicatas na b+ indexação secundária...");
+        try{
+            auto [resultados, blocosLidos] = arvore2.buscarTodos(ChaveTitulo("AAA"));
+            logger.info("Busca por 'AAA' retornou " +std::to_string(resultados.size()) 
+            +" resultados. blocos lidos: " +std::to_string(blocosLidos));
+
+            for(auto id: resultados)
+                logger.debug(" -> " +std::to_string(id));
+
+            if(resultados.empty()) {
+                logger.error("Nenhum resultado retornado para a chave 'AAA'");
+                sucesso_str = false;
+            }
+        } catch (const std::exception &ex){
+            logger.error("Falha na busca de duplicatas 'AAA': " +std::string(ex.what()));
+            sucesso_str = false;
+        }
+
+        // Teste com chave inexistente
+        logger.info("\nTestando busca de chave inexistente (usando buscarTodos)...");
         try {
             ChaveTitulo chaveInexistente("Titulo Que Nao Existe");
-            arvore2.buscar(chaveInexistente);
-            logger.error("ERRO: Busca por chave inexistente deveria ter falhado!");
-            sucesso_str = false;
+            auto [resultados, blocosLidos] = arvore2.buscarTodos(chaveInexistente);
+
+            if (resultados.empty()) {
+                logger.info("OK: Busca por chave inexistente retornou vetor vazio como esperado.");
+            } else {
+                logger.error("ERRO: Busca por chave inexistente retornou " +
+                             std::to_string(resultados.size()) + " resultados!");
+                for (auto id : resultados)
+                    logger.debug(" -> " + std::to_string(id));
+                sucesso_str = false;
+            }
         } catch (const std::exception &ex) {
-             logger.info("OK: Busca por chave inexistente falhou como esperado. (" + std::string(ex.what()) + ")");
+            logger.error("Falha inesperada ao buscar chave inexistente: " + std::string(ex.what()));
+            sucesso_str = false;
         }
 
         if (sucesso_str)
@@ -165,7 +192,8 @@ int main() {
         else
             logger.warn("Algumas buscas no Índice Secundário falharam!");
 
-        logger.info("Número total de blocos no arquivo de índice secundário: " + std::to_string(dm2.getTotalBlocks()));
+        logger.debug("Número total de blocos no arquivo de índice secundário: " +
+                    std::to_string(dm2.getTotalBlocks()));
     }
 
     logger.debug("\nTeste da B+Tree On-Disk concluído.");

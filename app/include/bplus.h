@@ -21,8 +21,8 @@ struct Superbloco {
     int idBlocoRaiz;    // ID do bloco raiz
     int ordemInterna; // ordem máxima de um nó interno
     int ordemFolha;   // ordem máxima de uma folha
+    bool primaria;
 };
-
 
 const int ORDEM_INTERNA_INT = (BLOCK_SIZE - sizeof(CabecalhoPagina)) / (sizeof(int) + sizeof(int)) - 1; // ~509 
 const int ORDEM_FOLHA_INT_LONG = (BLOCK_SIZE - sizeof(CabecalhoPagina) - sizeof(int)) / (sizeof(int) + sizeof(long)); // ~340 
@@ -39,8 +39,8 @@ private:
     //cpisinhas pro buffer
     std::vector<std::pair<Chave, Dado>> buffer;
     const int TAMANHO_BUFFER = 1000; // número de registros antes de inserir
+    bool primaria; //bool pra mudar a inserção/busca se for primaria/secundaria
 
-    // é o layout do buffer de 4KB
     struct PaginaInterna {
         CabecalhoPagina cabecalho;
         Chave chaves[ORDEM_INTERNA];
@@ -140,6 +140,7 @@ private:
         sb.idBlocoRaiz = this->idBlocoRaiz;
         sb.ordemInterna = ORDEM_INTERNA;
         sb.ordemFolha = ORDEM_FOLHA;
+        sb.primaria = this->primaria;
         std::memcpy(buffer, &sb, sizeof(Superbloco));
         dm.writeBlock(0, buffer);
     }
@@ -160,14 +161,16 @@ private:
             PaginaFolha folha; // Struct com tamanho ORDEM
             lerPaginaFolha(idBlocoAtual, folha);
 
-            // Verifica duplicada (importante para índice primário)
-            for (int k = 0; k < folha.cabecalho.numChaves; ++k) {
-                if (keyCompareEqual(chave, folha.chaves[k])) {
-                    logger.error("Chave duplicada: " + to_string_log(chave));
-                    throw std::runtime_error("Chave duplicada não permitida.");
-                 }
+            //so verifica se for primaria
+            if(this->primaria){
+                // verifica duplicada (importante para índice primário)
+                for (int k = 0; k < folha.cabecalho.numChaves; ++k) {
+                    if (keyCompareEqual(chave, folha.chaves[k])) {
+                        logger.error("Chave duplicada: " + to_string_log(chave));
+                        throw std::runtime_error("Chave duplicada não permitida.");
+                    }
+                }
             }
-
             // Cria buffers temporários na HEAP com +1 espaço
             std::vector<Chave> chavesTemp(ORDEM_FOLHA + 1);
             std::vector<Dado> dadosTemp(ORDEM_FOLHA + 1);
@@ -212,15 +215,16 @@ private:
             PaginaInterna interno; // Struct com tamanho ORDEM
             lerPaginaInterna(idBlocoAtual, interno);
 
-            // Encontra filho para descer (Busca Binária)
+            // busca binaria mt louco
             int L = 0, R = interno.cabecalho.numChaves;
-            int indicePonteiro = 0;
             while (L < R) {
-                int mid = L + (R - L) / 2;
-                if (keyCompareLess(interno.chaves[mid], chave)) { indicePonteiro = mid + 1; L = mid + 1; }
-                else R = mid;
+                int meio = L + (R - L) / 2;
+                if (keyCompareGreaterEqual(chave, interno.chaves[meio]))
+                    L = meio + 1; //tenta a direita
+                else R = meio; //achou, guarda e tenta a esquerda
             }
-            // Valida o índice do ponteiro
+            int indicePonteiro = L;
+            // valida o índice do ponteiro
             if (indicePonteiro < 0 || indicePonteiro > interno.cabecalho.numChaves) {
                  logger.error("Erro interno: indicePonteiro inválido ("+std::to_string(indicePonteiro)+") no nó interno "+std::to_string(idBlocoAtual));
                  throw std::runtime_error("Erro de lógica na busca do filho interno.");
@@ -278,22 +282,19 @@ private:
         }
     }
 
-
-    // --- Split REFATORADO para usar ponteiros para Buffers Temporários ---
     // Recebe ponteiros para os buffers que JÁ contêm N+1 elementos
     int splitFolha(int idBlocoOriginal, int idProximaOriginal,
                    const Chave* chavesTemp, const Dado* dadosTemp, int numChavesTemp, // numChavesTemp = ORDEM_FOLHA + 1
                    Chave& chavePromovida){
         int t = (ORDEM_FOLHA + 1) / 2; // Número de chaves que ficam na original
-        PaginaFolha folhaOriginal; // Cria página original (vazia) em memória (tamanho N)
-        PaginaFolha novaFolha;     // Cria nova página (vazia) em memória (tamanho N)
-        int idNovoBloco = alocarNovoBloco(); // Aloca bloco no disco para a nova folha
+        PaginaFolha folhaOriginal; // Cria página original em memória
+        PaginaFolha novaFolha;     // Cria nova página em memória
+        int idNovoBloco = alocarNovoBloco(); // localizacao do bloco no disco pra nova folha
 
         int numChavesNova = numChavesTemp - t;
         folhaOriginal.cabecalho.numChaves = t;
         novaFolha.cabecalho.numChaves = numChavesNova;
 
-        // Verifica limites antes do memcpy (Defensivo)
         if (t < 0 || numChavesNova < 0 || t > ORDEM_FOLHA || numChavesNova > ORDEM_FOLHA || (t + numChavesNova) != numChavesTemp) {
              logger.error("Erro cálculo splitFolha: t="+std::to_string(t)+", numNova="+std::to_string(numChavesNova)+", numTemp="+std::to_string(numChavesTemp));
              throw std::runtime_error("Erro de lógica no splitFolha.");
@@ -382,8 +383,8 @@ private:
     }
 
 public:
-    BPlusTree(DiskManager& diskManager, Logger& logger)
-        : dm(diskManager), logger(logger), idBlocoRaiz(-1) {
+    BPlusTree(DiskManager& diskManager, Logger& logger, bool primaria = true)
+        : primaria(primaria), dm(diskManager), logger(logger), idBlocoRaiz(-1) {
 
         if (dm.getTotalBlocks() < 2) {
             logger.warn("Índice B+Tree não encontrado ou inválido (blocos < 2). Criando novo índice...");
@@ -416,13 +417,21 @@ public:
                 throw std::runtime_error("Incompatibilidade de Ordem do índice.");
             }
 
+            //nao devia abrir o arquivo da b+secundaria se for instanciada como primaria
+            if(sb.primaria != this->primaria){
+                logger.error(std::string("Tipo de indice incompatível, tentando abrir índice primária como secundária:\n")
+                +"Estrutura primária? = " +std::to_string(sb.primaria) +" | "
+                +"B+ instanciada primária? = " +std::to_string(this->primaria));
+                throw std::runtime_error("Incompatibilidade de tipos de indices");
+            }
+
             if (sb.idBlocoRaiz < 1 || sb.idBlocoRaiz >= dm.getTotalBlocks()) {
                 logger.error("ID do bloco raiz inválido (" + std::to_string(sb.idBlocoRaiz) + ") lido do Superbloco.");
                  throw std::runtime_error("ID do bloco raiz inválido no Superbloco.");
             }
 
             idBlocoRaiz = sb.idBlocoRaiz;
-            logger.info("Índice B+Tree carregado. Raiz no bloco " + std::to_string(idBlocoRaiz));
+            logger.info("Índice B+Tree (primaria=" +std::to_string(sb.primaria) +") carregado. Raiz no bloco " + std::to_string(idBlocoRaiz));
         }
     }
 
@@ -494,8 +503,77 @@ public:
         }
     }
 
-    void imprimir() {
-        logger.info("Impressão On-Disk não implementada (requer travessia BFS lendo blocos)");
+    std::pair<std::vector<Dado>, int> buscarTodos(const Chave& chave) {
+        int idBlocoAtual = idBlocoRaiz;
+        dm.getAndResetBlocksRead();
+        std::vector<Dado> resultados;
+
+        // desce a arvore até a folha correta
+        while (true) {
+            CabecalhoPagina cabecalho = lerCabecalho(idBlocoAtual);
+            if (cabecalho.folha) break; // achouu
+
+            PaginaInterna interno;
+            lerPaginaInterna(idBlocoAtual, interno);
+
+            // busca linear
+            int i = 0;
+            while (i < interno.cabecalho.numChaves && keyCompareGreaterEqual(chave, interno.chaves[i])) {
+                i++;
+            }
+            idBlocoAtual = interno.idsFilhos[i];
+
+            if (idBlocoAtual == -1) {
+                int blocosLidos = dm.getAndResetBlocksRead();
+                logger.info("Chave "+to_string_log(chave)+" não encontrada (ponteiro nulo). Blocos lidos: "+std::to_string(blocosLidos));
+                return {resultados, blocosLidos}; //ta vazio
+            }
+        }
+
+        PaginaFolha folha;
+        lerPaginaFolha(idBlocoAtual, folha);
+        int idxInicio = 0;
+        // vai pra primeira chave que nao é menor que a chave buscada
+        while (idxInicio < folha.cabecalho.numChaves && keyCompareLess(folha.chaves[idxInicio], chave)) {
+            idxInicio++;
+        }
+
+        // busca linear da lista de folhas
+        bool buscando = true;
+        bool primeiraFolha = true;
+        while (buscando && idBlocoAtual != -1) {
+            
+            if(!primeiraFolha){
+                lerPaginaFolha(idBlocoAtual, folha);//le o prox bloco
+                idxInicio = 0;
+            }
+            primeiraFolha = false;
+
+            for (int i = idxInicio; i < folha.cabecalho.numChaves; i++) {
+                if (keyCompareEqual(folha.chaves[i], chave)) {
+                    resultados.push_back(folha.dados[i]);
+                } else {
+                    // cabou a busca, chave maior que a buscada
+                    buscando = false;
+                    break;
+                }
+            }
+
+            //ainda lendo procurando folhas
+            if (buscando) {
+                idBlocoAtual = folha.idProximaFolha;
+                idxInicio = 0;
+            }
+        }
+
+        int blocosLidos = dm.getAndResetBlocksRead();
+        if (resultados.empty()) {
+            logger.info("Chave " + to_string_log(chave) + " não encontrada");
+        } else {
+            logger.info("Chave " + to_string_log(chave) + " encontrada com " + std::to_string(resultados.size()) + " registros");
+        }
+        logger.info("Blocos lidos: " + std::to_string(blocosLidos));
+        return {resultados, blocosLidos};
     }
 
     //entrada de dados com buffer/lotes
