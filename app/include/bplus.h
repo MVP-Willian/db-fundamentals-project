@@ -6,6 +6,7 @@
 #include <cmath>
 #include "logger.h"
 #include "diskManager.h"
+#include "artigo.h"
 
 //"metadados" sobre um nó
 struct CabecalhoPagina {

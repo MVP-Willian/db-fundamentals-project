@@ -7,7 +7,6 @@
 #include <string>
 #include "logger.h"
 
-const int BLOCK_SIZE = 4096; //isso da 4KB (uma pagina)
 
 class DiskManager{
 private:
@@ -30,14 +29,14 @@ public:
     @param id_block representa o ID sequencial do bloco a ser lido
     @param buffer ponteiro para o buffer na RAM onde o bloco vai ser copiado (buffer deve ter tamanho BLOCK_SIZE)
     */
-    void readBlock(int id_block, char* buffer);
+    bool readBlock(long long id_block, char* buffer);
 
     /**
     @brief escreve em um bloco de tamanho fixo da RAM pro disco
     @param id_block o ID do bloco que sera escrito/sobreescrito
     @param buffer ponteiro para os dados da RAM que serão escritos no disco
     */
-    void writeBlock(int id_block, const char* buffer);
+    bool writeBlock(long long id_block, const char* buffer);
 
     /**
     @brief calcula o numero total de blocos existentes no arquivo
@@ -50,6 +49,8 @@ public:
     @return o numero total de blocos lidos na ultima operacao
     */
     int getAndResetBlocksRead();
+
+    bool isOpen() const { return file.is_open(); }
 };
 
 #endif
