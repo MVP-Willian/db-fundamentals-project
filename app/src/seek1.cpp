@@ -2,6 +2,7 @@
 #include "logger.h"
 #include "diskManager.h"
 #include "bplus.h"
+#include "artigo.h"
 
 // Índice Primário: Chave=int, Dado=long (offset)
 const int ORDEM_FOLHA_PRIMARIO = (BLOCK_SIZE - sizeof(CabecalhoPagina) - sizeof(int)) / (sizeof(int) + sizeof(long));
@@ -19,7 +20,7 @@ int main(int argc, char** argv) {
     log_sys.info("Programa SEEK1 iniciado. Buscando ID: " +std::to_string(id));
     
     DiskManager diskPrimario("/data/db/bplus_primario.idx", log_sys);
-    BPlusTree<int, long, ORDEM_INTERNA_PRIMARIO, ORDEM_FOLHA_PRIMARIO> arvore(diskPrimario, log_sys);
+    BPlusTree<int, long, ORDEM_INTERNA_PRIMARIO, ORDEM_FOLHA_PRIMARIO> arvore{diskPrimario, log_sys};
     log_sys.iniciarTimer();
     try {
         auto resultado = arvore.buscar(id);

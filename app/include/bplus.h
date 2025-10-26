@@ -6,6 +6,7 @@
 #include <cmath>
 #include "logger.h"
 #include "diskManager.h"
+#include "artigo.h"
 
 // DEFINIÇÃO DAS ESTRUTURAS DE PÁGINA (NÓS) 
 // cada pagina (Nó) terá 4KB (BLOCK_SIZE)

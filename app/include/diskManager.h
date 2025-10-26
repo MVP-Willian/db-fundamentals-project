@@ -7,7 +7,6 @@
 #include <string>
 #include "logger.h"
 
-const int BLOCK_SIZE = 4096; //isso da 4KB (uma pagina)
 
 class DiskManager{
 private:

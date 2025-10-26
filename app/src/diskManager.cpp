@@ -1,4 +1,6 @@
 #include "diskManager.h"
+#include "logger.h"
+#include "artigo.h" 
 
 DiskManager::DiskManager(const std::string& path, Logger& logger):
 path(path),log(logger)
