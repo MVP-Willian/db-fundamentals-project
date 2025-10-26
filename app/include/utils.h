@@ -21,7 +21,7 @@ inline std::string tmParaString(const std::tm& t) {
 }
 
 // O N (Primo) calculado para N_Registros=1549146, F_B=2, alpha=0.7
-const long long N_BUCKETS = 1106527;
+const long long N_BUCKETS = 800011;
 
 // --- FUNÇÃO HASH ---
 

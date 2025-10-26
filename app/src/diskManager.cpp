@@ -50,29 +50,55 @@ DiskManager::~DiskManager(){
     }
 }
 
-void DiskManager::readBlock(long long id_block, char* buffer){
+bool DiskManager::readBlock(long long id_block, char* buffer){
     if(!file.is_open()){
         log.error("Tentativa de ler o bloco, mas o arquivo não tá aberto");
-        return;
+        return false;
     }
     memset(buffer, 0, BLOCK_SIZE);
-    // move o ponteiro de escrita para o bloco correto
-    file.seekg(static_cast<long long>(id_block) * BLOCK_SIZE, std::ios::beg);
+    // Calculate offset
+    long long offset = static_cast<long long>(id_block) * BLOCK_SIZE;
+
+    // Clear stream state before seeking
+    file.clear();
+    file.seekg(offset, std::ios::beg);
+
+    // Check if seek failed (e.g., offset beyond file size *initially*)
+    if (file.fail()) {
+        log.error("Falha no seekg para o bloco " + std::to_string(id_block) + " (offset: " + std::to_string(offset) + ")");
+        file.clear(); // Clear the fail bit
+        return false; // Indicate failure
+    }
+
+    // Try to read
     file.read(buffer, BLOCK_SIZE);
 
-    if(!file){
-        log.error("Falha ao ler o bloco " + std::to_string(id_block));
-        file.clear();
+    // Check if read failed or didn't read enough bytes
+
+    // Use gcount() which tells how many bytes were actually read
+    if (file.fail() || file.gcount() < BLOCK_SIZE) {
+        // Log different messages depending on EOF or other errors
+        if (file.eof()) {
+            log.error("Falha ao ler o bloco " + std::to_string(id_block) + ": Fim de arquivo inesperado. Bytes lidos: " + std::to_string(file.gcount()));
+        } else {
+            log.error("Falha ao ler o bloco " + std::to_string(id_block) + ". Erro de I/O. Bytes lidos: " + std::to_string(file.gcount()));
+        }
+        file.clear(); // Clear error flags (like eofbit, failbit)
+        return false; // Indicate failure
     } else {
+        // Read successful
         blocos_lidos++;
         log.debug("Bloco " + std::to_string(id_block) + " lido com sucesso");
+        // No need to clear here if read was fully successful, but doesn't hurt
+        // file.clear();
+        return true; // Indicate success
     }
 }
 
-void DiskManager::writeBlock(long long id_block, const char* buffer){
+bool DiskManager::writeBlock(long long id_block, const char* buffer){
     if(!file.is_open()){
         log.error("Tentativa de escrever bloco, mas arquivo não está aberto");
-        return;
+        return false;
     }    
 
     // move o ponteiro de escrita para o bloco correto
@@ -83,8 +109,10 @@ void DiskManager::writeBlock(long long id_block, const char* buffer){
     if(!file){
         log.error("Falha ao escrever o bloco " + std::to_string(id_block));
         file.clear();
+        return false;
     } else {
         log.debug("Bloco " + std::to_string(id_block) + " escrito com sucesso");
+        return true;
     }
 }
 
