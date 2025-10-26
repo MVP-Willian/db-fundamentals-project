@@ -17,7 +17,7 @@ const int ORDEM_INTERNA_PRIMARIO = (BLOCK_SIZE - sizeof(CabecalhoPagina)) / (siz
 int main(int argc, char**argv){
     Logger log_sys;
     std::filesystem::remove("/data/db/bplus_primario.idx");
-    std::filesystem::remove("data/db/arquivo_hash.dat");
+    std::filesystem::remove("/data/db/arquivo_hash.dat");
     
     // --- INICIALIZA OS DOIS DISK MANAGERS ---
     DiskManager diskPrimario("/data/db/bplus_primario.idx", log_sys);
@@ -97,7 +97,6 @@ int main(int argc, char**argv){
 
             if (dadosIncompletos){
                 log_sys.warn("Possível problema no artigo de ID " +std::to_string(art.getId()) + ": " + motivos);
-                log_sys.warn(linha);
             }
 
             // --- MUDANÇA PRINCIPAL ---
