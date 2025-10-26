@@ -7,16 +7,13 @@
 #include "logger.h"
 #include "diskManager.h"
 
-// DEFINIÇÃO DAS ESTRUTURAS DE PÁGINA (NÓS) 
-// cada pagina (Nó) terá 4KB (BLOCK_SIZE)
-
-// cabecalho para todas as páginas
+//"metadados" sobre um nó
 struct CabecalhoPagina {
     bool folha;     // 1 se a página é folha, 0 se interna
     int numChaves;  // num de chaves guardadas
 };
 
-// o bloco 0 (Superbloco) guarda metadados da árvore
+// o bloco 0 (Superbloco) guarda metadados da árvore no geral
 struct Superbloco {
     int idBlocoRaiz;    // ID do bloco raiz
     int ordemInterna; // ordem máxima de um nó interno
@@ -36,11 +33,12 @@ private:
     int idBlocoRaiz;
     DiskManager& dm;
     Logger& logger;
-    //cpisinhas pro buffer
+    //coisinhas pro buffer
     std::vector<std::pair<Chave, Dado>> buffer;
     const int TAMANHO_BUFFER = 1000; // número de registros antes de inserir
     bool primaria; //bool pra mudar a inserção/busca se for primaria/secundaria
 
+    //nó interno, só tem chave e ponteiros pros filhos
     struct PaginaInterna {
         CabecalhoPagina cabecalho;
         Chave chaves[ORDEM_INTERNA];
@@ -53,6 +51,7 @@ private:
         }
     };
 
+    //nó folha, tem as chaves, dados, e o ponteiro pras proximas folhas
     struct PaginaFolha {
         CabecalhoPagina cabecalho;
         Chave chaves[ORDEM_FOLHA];
@@ -93,7 +92,12 @@ private:
         }
     }
 
-    // le o cabecalho de um bloco para saber se é folha ou interno
+    /**
+        Lê o cabeçalho de uma página a partir do ID do bloco,
+        Retorna uma struct CabecalhoPagina falando se o nó é folha/interna 
+        e o numero de chaves
+        basicamente lê os primeiros bytes do bloco e copia pra struct
+    */
     CabecalhoPagina lerCabecalho(int idBloco) {
         char buffer[BLOCK_SIZE];
         dm.readBlock(idBloco, buffer);
@@ -102,21 +106,32 @@ private:
         return cabecalho;
     }
 
-    // le o bloco como pag interna
+    /**
+        lê uma página interna do disco, copia o conteudo para a struct PaginaInterna
+        A pagina tem chaves e IDs dos filhos, serve pra manipulação em memória da arvore
+    */
     void lerPaginaInterna(int idBloco, PaginaInterna& pagina) {
         char buffer[BLOCK_SIZE];
         dm.readBlock(idBloco, buffer);
         std::memcpy(&pagina, buffer, sizeof(PaginaInterna));
     }
 
-    // le o bloco como pag folha
+    /**
+        Lê uma pagina folha do disco, copia o conteudo pra struct PaginaFolha
+        tem chaves e os dados associados, e o ponteiro pra próxima folha
+        permite percorrer e modificar a folha em memória
+    */
     void lerPaginaFolha(int idBloco, PaginaFolha& pagina) {
         char buffer[BLOCK_SIZE];
         dm.readBlock(idBloco, buffer);
         std::memcpy(&pagina, buffer, sizeof(PaginaFolha));
     }
 
-    // salva pagina interna
+    /**
+        Escreve uma página interna de volta pro disco
+        Atualiza o bloco com o conteúdo da struct PaginaInterna, 
+        incluindo a chave e ponteiros filhos
+    */
     void escreverPaginaInterna(int idBloco, const PaginaInterna& pagina) {
         char buffer[BLOCK_SIZE];
         std::memset(buffer, 0, BLOCK_SIZE); 
@@ -124,7 +139,10 @@ private:
         dm.writeBlock(idBloco, buffer);
     }
 
-    // salva pagina folha
+    /**
+        escreve uma pagina folha de volta ao disco
+        atualiza o bloco com chaves, dados e ponteiros para a próxima folha
+    */
     void escreverPaginaFolha(int idBloco, const PaginaFolha& pagina) {
         char buffer[BLOCK_SIZE];
         std::memset(buffer, 0, BLOCK_SIZE); 
@@ -132,7 +150,12 @@ private:
         dm.writeBlock(idBloco, buffer);
     }
 
-    // salva o Superbloco
+    
+    /** 
+        Salva metadados no bloco 0, metadados da árvore B+.
+        guarda ID da raiz, ordens máximas dos nós internos e folhas, e se é índice primário.
+        isso permite reconstituir a árvore ao abrir o arquivo de novo (pra buscar)
+    */
     void salvarSuperbloco() {
         char buffer[BLOCK_SIZE];
         std::memset(buffer, 0, BLOCK_SIZE);
@@ -145,12 +168,21 @@ private:
         dm.writeBlock(0, buffer);
     }
 
-    // aloca um novo bloco no disco
+    /**
+        aloca um novo bloco no disco
+        retorna o próximo ID livre pra usar em splits ou novas páginas
+    */
     int alocarNovoBloco() {
         return dm.getTotalBlocks(); // pega o prox ID livre
     }
 
-    // devolve ID do novo filho se houve split
+    /**
+        funcao recursiva que insere uma chave e dado na árvore B+.
+        basicamente percorre a árvore a partir do bloco atual até encontrar a folha certa
+        se a folha tiver cheia, cria um split e promove uma chave para o pai.
+        Para nós internos, insere a chave promovida no nó e realiza split se precisar.
+        Retorna -1 se não houve split, ou o ID do novo bloco criado.
+    */
     int inserirRec(int idBlocoAtual, const Chave& chave, const Dado& dado, Chave& chavePromovida) {
         if (idBlocoAtual < 1) { logger.error("Erro interno: inserirRec bloco inválido ID: " + std::to_string(idBlocoAtual)); throw std::runtime_error("Acesso a bloco inválido no índice.");}
 
@@ -282,7 +314,12 @@ private:
         }
     }
 
-    // Recebe ponteiros para os buffers que JÁ contêm N+1 elementos
+    /**
+        divide uma folha cheia em duas páginas separadas.
+        Copia as chaves e dados temporários para a folha original e para a nova folha.
+        Ajusta o ponteiro da lista encadeada de folhas e promove a primeira chave da nova folha.
+        Retorna o ID do novo bloco criado (irmão direito da folha original).
+    */
     int splitFolha(int idBlocoOriginal, int idProximaOriginal,
                    const Chave* chavesTemp, const Dado* dadosTemp, int numChavesTemp, // numChavesTemp = ORDEM_FOLHA + 1
                    Chave& chavePromovida){
@@ -327,6 +364,12 @@ private:
         return idNovoBloco;
     }
 
+    /**
+        divide um nó interno cheio em dois nós internos
+        a chave do meio é promovida pro nó pai, o resto é dividido entre o nó original e o novo
+        copia chaves e filhos temporarios pra novas paginas e limpa posições restantes
+        retorna o ID do novo bloco criado
+    */
     int splitInterno(int idBlocoOriginal,
                      const Chave* chavesTempI, const int* filhosTemp, int numChavesTempI, // numChavesTempI = ORDEM_INTERNA + 1
                      Chave& chavePromovida){
@@ -371,7 +414,9 @@ private:
         return idNovoBloco; // Retorna ID do novo bloco ("irmão" direito)
     }
 
-
+    /**
+        funcao auxiliar, converte chave pra string só pra mostrar nos logs
+    */
     std::string to_string_log(const Chave& val) {
         if constexpr (std::is_convertible_v<Chave, std::string>) {
             return std::string(val); 
@@ -383,6 +428,9 @@ private:
     }
 
 public:
+    // Construtor que carrega uma B+Tree existente do disco ou cria uma nova se não existir
+    // Inicializa superbloco e raiz, valida compatibilidade de ordens e tipo de índice
+    // garante que a árvore tá pronta para inserções e buscas
     BPlusTree(DiskManager& diskManager, Logger& logger, bool primaria = true)
         : primaria(primaria), dm(diskManager), logger(logger), idBlocoRaiz(-1) {
 
@@ -437,6 +485,11 @@ public:
 
     ~BPlusTree(){}
 
+    /**
+        insere um registro (chave/dado) na b+
+        chama a funcao recursiva pra percorrer a arvore e inserir na folha
+        se tiver split na raiz, cria uma nova raiz com dois filhos
+    */
     void inserir(const Chave& chave, const Dado& dado) {
         Chave chavePromovida;
         int idNovoFilho = inserirRec(idBlocoRaiz, chave, dado, chavePromovida);
@@ -461,6 +514,12 @@ public:
         }
     }
 
+    /**
+        busca um registro pela chave em indice primário, percorre a arvore do bloco raiz
+        até a folha certa.
+        retorna o dado encontrado e a quantidade de blocos lidos
+        lança exceção de runtime se a chave nao existir na b+
+    */
     std::pair<Dado, int> buscar(const Chave& chave) {
         int idBlocoAtual = idBlocoRaiz;
 
@@ -503,6 +562,12 @@ public:
         }
     }
 
+    /**
+        mesma coisa de buscar, mas é pra busca em indice secundária
+        desce até a primeira folha possível e percorre a lista de folhas
+        coleta todos os dados iguais a chave buscada
+        retorna vetor de resultados e numero de blocos lidos
+    */
     std::pair<std::vector<Dado>, int> buscarTodos(const Chave& chave) {
         int idBlocoAtual = idBlocoRaiz;
         dm.getAndResetBlocksRead();
@@ -576,7 +641,10 @@ public:
         return {resultados, blocosLidos};
     }
 
-    //entrada de dados com buffer/lotes
+    /**
+        insere vários registros de uma vez, ordenando antes de inserir
+        usa otimização em lotes pra evitar split repetidos desnecessários
+    */
     void inserirLote(const std::vector<std::pair<Chave, Dado>>& registros) {
         // exemplo para a primária:
         std::vector<std::pair<Chave, Dado>> temp = registros;
@@ -589,6 +657,10 @@ public:
         }
     }
 
+    /**
+        insere no buffer temporário, quando cheio chama a funcao inserirLote,
+        é pra usar ao inserir varios registros no upload
+    */
     void inserirNoBuffer(const Chave& chave, const Dado& dado) {
         buffer.emplace_back(chave, dado);
         if (buffer.size() >= TAMANHO_BUFFER) {
@@ -597,6 +669,10 @@ public:
         }
     }
 
+    /**
+        força a escrita dos registros restantes no buffer quando nao está cheio
+        garante que nenhum registro fica pendente na memória
+    */
     void flushBuffer() {
         if (!buffer.empty()) {
             inserirLote(buffer);
