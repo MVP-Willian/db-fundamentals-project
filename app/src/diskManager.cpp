@@ -50,14 +50,14 @@ DiskManager::~DiskManager(){
     }
 }
 
-void DiskManager::readBlock(int id_block, char* buffer){
+void DiskManager::readBlock(long long id_block, char* buffer){
     if(!file.is_open()){
         log.error("Tentativa de ler o bloco, mas o arquivo não tá aberto");
         return;
     }
     memset(buffer, 0, BLOCK_SIZE);
     // move o ponteiro de escrita para o bloco correto
-    file.seekg(id_block * BLOCK_SIZE, std::ios::beg);
+    file.seekg(static_cast<long long>(id_block) * BLOCK_SIZE, std::ios::beg);
     file.read(buffer, BLOCK_SIZE);
 
     if(!file){
@@ -69,14 +69,14 @@ void DiskManager::readBlock(int id_block, char* buffer){
     }
 }
 
-void DiskManager::writeBlock(int id_block, const char* buffer){
+void DiskManager::writeBlock(long long id_block, const char* buffer){
     if(!file.is_open()){
         log.error("Tentativa de escrever bloco, mas arquivo não está aberto");
         return;
     }    
 
     // move o ponteiro de escrita para o bloco correto
-    file.seekp(id_block * BLOCK_SIZE, std::ios::beg);
+    file.seekp(static_cast<long long>(id_block) * BLOCK_SIZE, std::ios::beg);
     file.write(buffer, BLOCK_SIZE);
     file.flush();
 

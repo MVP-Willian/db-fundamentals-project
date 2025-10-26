@@ -29,7 +29,7 @@ IMAGE_NAME = tp2-teste
 
 # Nomes dos executáveis FINAIS (Requisitos do TP2)
 #PROGS = upload findrec seek1 seek2
-PROGS = upload seek1
+PROGS = upload seek1 findrec
 EXECS = $(addprefix $(BIN_DIR)/, $(PROGS))
 
 all: docker-build
@@ -54,9 +54,14 @@ $(BIN_DIR)/seek1: $(SRC_DIR)/seek1.cpp $(LOGGER_SRC)
 	@mkdir -p $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(DISKMANAGER_SRC) -o $@
 
+$(BIN_DIR)/findrec: $(SRC_DIR)/findrec.cpp $(LOGGER_SRC) $(DISKMANAGER_SRC) $(ARTIGO_SRC)
+	@echo "Compilando findrec: $< -> $@"
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(DISKMANAGER_SRC) $(ARTIGO_SRC) -o $@
+
 # caminho padrao do csv, pode ser sobreescrito (make upload FILE=outro.csv)
 FILE ?= data/artigo.csv
-ID ?= 1
+ID ?= 10
 
 # compila todos os executaveis e testes (fora do docker)
 build: $(EXECS) $(TESTS_EXEC) 
@@ -65,10 +70,13 @@ build: $(EXECS) $(TESTS_EXEC)
 # execuções via docker:
 upload:
 	mkdir -p data/db
-	docker run --rm -v $(PWD)/data:/data tp2-teste /app/bin/upload $(FILE)
+	docker run --rm -v $(PWD)/data:/data tp2-teste /app/bin/upload /$(FILE)
 
 seek1:
 	docker run --rm -v $(PWD)/data:/data tp2-teste /app/bin/seek1 $(ID)
+
+findrec:
+	docker run --rm -v $(PWD)/data:/data tp2-teste /app/bin/findrec $(ID)
 
 # cria a imagem docker e executa o make build acima, mas dentro do container
 docker-build:
