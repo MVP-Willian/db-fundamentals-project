@@ -39,7 +39,7 @@ void pre_aloca_hashing(DiskManager& dm, Logger& log) {
     for (long long i = 1; i <= N_BUCKETS; i++) {
         // O DiskManager.writeBlock usa 'int' para o id_block, cast é seguro aqui
         // já que N_BUCKETS (1.1M) cabe em int.
-        dm.writeBlock((int)i, buffer_vazio);
+        dm.writeBlock(i, buffer_vazio);
     }
     
     log.info("Pré-alocação concluída. O arquivo tem agora " + std::to_string(dm.getTotalBlocks()) + " blocos.");
@@ -65,14 +65,14 @@ long long insere_no_hash(DiskManager& dm, Artigo& artigo, Logger& log) {
     while (true) {
         // 2. Lê o bloco atual do disco (1 acesso a disco)
         // O DiskManager.readBlock usa 'int' para o id_block
-        dm.readBlock((int)balde_id_atual, buffer);
+        dm.readBlock(balde_id_atual, buffer);
         BlocoDeDados* bloco = reinterpret_cast<BlocoDeDados*>(buffer);
 
         // 3. Caso 1: Bloco tem espaço (Inserção sem overflow)
         if (bloco->contador_registros < FATOR_BLOCO) {
             bloco->registros[bloco->contador_registros] = artigo;
             bloco->contador_registros++;
-            dm.writeBlock((int)balde_id_atual, buffer);
+            dm.writeBlock(balde_id_atual, buffer);
             
             log.debug("Artigo ID " + std::to_string(artigo.getId()) + " inserido no balde " + std::to_string(balde_id_atual));
             return balde_id_atual; // RETORNA O ID DO BLOCO
@@ -94,7 +94,7 @@ long long insere_no_hash(DiskManager& dm, Artigo& artigo, Logger& log) {
         
         // (A) Atualiza o bloco atual para apontar para o novo
         bloco->ponteiro_overflow = novo_bloco_id;
-        dm.writeBlock((int)balde_id_atual, buffer); // Salva o novo ponteiro
+        dm.writeBlock(balde_id_atual, buffer); // Salva o novo ponteiro
         
         // (B) Cria o novo bloco de overflow na memória
         char buffer_novo[BLOCK_SIZE] = {0};
@@ -106,7 +106,7 @@ long long insere_no_hash(DiskManager& dm, Artigo& artigo, Logger& log) {
         bloco_novo->ponteiro_overflow = -1; // É o novo fim da cadeia
 
         // (C) Escreve o novo bloco no disco
-        dm.writeBlock((int)novo_bloco_id, buffer_novo);
+        dm.writeBlock(novo_bloco_id, buffer_novo);
         
         log.warn("Overflow para ID " + std::to_string(artigo.getId()) + ". Novo bloco criado e inserido em ID " + std::to_string(novo_bloco_id));
         return novo_bloco_id; // RETORNA O ID DO NOVO BLOCO DE OVERFLOW

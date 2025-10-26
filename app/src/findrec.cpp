@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <stdexcept>
+#include <set>
 
 #include "logger.h"
 #include "diskManager.h"
@@ -41,7 +42,27 @@ int main(int argc, char**argv) {
     bool encontrado = false;
     Artigo artigo_encontrado;
 
+    
+    // --- CÓDIGO NOVO: DETECÇÃO DE CICLO ---
+    std::set<long long> blocos_visitados;
+    // --- FIM DO CÓDIGO NOVO ---
+    
+
     while (balde_id_atual != -1) {
+
+        // --- CÓDIGO NOVO: VERIFICAÇÃO DE CICLO ---
+        if (blocos_visitados.count(balde_id_atual)) {
+            // Se já visitamos este bloco, estamos em um loop
+            log_sys.error("CICLO INFINITO DETECTADO! O bloco " 
+                          + std::to_string(balde_id_atual) 
+                          + " ja foi visitado. Abortando busca.");
+            std::cerr << "ERRO: Ciclo infinito na cadeia de hash. Arquivo de dados corrompido.\n";
+            encontrado = false;
+            break; // Sai do while
+        }
+        blocos_visitados.insert(balde_id_atual);
+        // --- FIM DO CÓDIGO NOVO ---
+        
         
         // 4. Ler o bloco atual do disco
         log_sys.debug("Lendo balde ID: " + std::to_string(balde_id_atual));
