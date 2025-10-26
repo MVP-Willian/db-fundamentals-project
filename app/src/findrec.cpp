@@ -47,29 +47,35 @@ int main(int argc, char**argv) {
     std::set<long long> blocos_visitados;
     // --- FIM DO CÓDIGO NOVO ---
     
+    bool erro_leitura = false; 
+    bool ciclo_detectado = false;
 
     while (balde_id_atual != -1) {
 
         // --- CÓDIGO NOVO: VERIFICAÇÃO DE CICLO ---
         if (blocos_visitados.count(balde_id_atual)) {
             // Se já visitamos este bloco, estamos em um loop
-            log_sys.error("CICLO INFINITO DETECTADO! O bloco " 
-                          + std::to_string(balde_id_atual) 
-                          + " ja foi visitado. Abortando busca.");
-            std::cerr << "ERRO: Ciclo infinito na cadeia de hash. Arquivo de dados corrompido.\n";
             encontrado = false;
             break; // Sai do while
         }
         blocos_visitados.insert(balde_id_atual);
         // --- FIM DO CÓDIGO NOVO ---
         
-        
+
         // 4. Ler o bloco atual do disco
         log_sys.debug("Lendo balde ID: " + std::to_string(balde_id_atual));
         blocos_lidos++;
         
+
+        if (!diskHash.readBlock(balde_id_atual, buffer)) {
+             log_sys.error("Falha critica ao ler bloco " + std::to_string(balde_id_atual) + " durante busca do ID " + std::to_string(id_busca) + ". Abortando busca.");
+             encontrado = false;
+             erro_leitura = true; // Marca que parou por erro de leitura
+             break; // Sai do while
+        }
+        
         // (Assumindo que DiskManager lida com falhas de leitura)
-        diskHash.readBlock(balde_id_atual, buffer);
+        log_sys.debug("Leitura do bloco " + std::to_string(balde_id_atual) + " OK. Varrendo...");
         BlocoDeDados* bloco = reinterpret_cast<BlocoDeDados*>(buffer);
 
         // 5. Varredura linear dentro do bloco
@@ -109,9 +115,17 @@ int main(int argc, char**argv) {
         std::cout << "Snippet: " << artigo_encontrado.getSnippet() << std::endl;
         std::cout << "----------------------------------------" << std::endl;
     } else {
-        log_sys.warn("Artigo com ID " + std::to_string(id_busca) + " NAO ENCONTRADO.");
+        // --- Código de falha (AGORA MAIS INTELIGENTE) ---
         log_sys.info("Blocos lidos nesta busca: " + std::to_string(blocos_lidos));
-        std::cout << "Artigo com ID " << id_busca << " NAO ENCONTRADO." << std::endl;
+        
+         if (erro_leitura) {
+             log_sys.error("Busca FALHOU devido a erro de leitura no disco.");
+             std::cout << "ERRO: Falha ao ler o arquivo de dados durante a busca." << std::endl;
+        } else {
+             // Se não foi erro de ciclo nem erro de leitura, significa que chegou ao fim da cadeia (-1)
+             log_sys.warn("Artigo com ID " + std::to_string(id_busca) + " NAO ENCONTRADO (fim da cadeia).");
+             std::cout << "Artigo com ID " << id_busca << " NAO ENCONTRADO." << std::endl;
+        }
     }
 
     return 0;

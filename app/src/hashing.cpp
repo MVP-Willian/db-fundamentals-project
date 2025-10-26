@@ -46,6 +46,10 @@ void pre_aloca_hashing(DiskManager& dm, Logger& log) {
 }
 
 
+
+
+static long long proximo_overflow_id = -1;
+
 // --- IMPLEMENTAÇÃO DA INSERÇÃO COM TRATAMENTO DE OVERFLOW ---
 
 /**
@@ -58,6 +62,19 @@ void pre_aloca_hashing(DiskManager& dm, Logger& log) {
  */
 long long insere_no_hash(DiskManager& dm, Artigo& artigo, Logger& log) {
     
+    // --- BLOCO DE INICIALIZAÇÃO (Só roda uma vez) ---
+    if (proximo_overflow_id == -1) {
+        // Pega o tamanho atual do arquivo UMA VEZ.
+        proximo_overflow_id = dm.getTotalBlocks();
+        
+        // Garante que nunca vamos sobrescrever a tabela primária.
+        // (Se o arquivo foi pré-alocado, getTotalBlocks() será N_BUCKETS + 1)
+        if (proximo_overflow_id <= N_BUCKETS) {
+            proximo_overflow_id = N_BUCKETS + 1;
+        }
+        log.info("Gerenciador de overflow inicializado. Próximo bloco livre ID: " + std::to_string(proximo_overflow_id));
+    }
+
     // 1. Calcular o balde primário (hash_function deve retornar um ID >= 1)
     long long balde_id_atual = hash_function(artigo.getId());
     char buffer[BLOCK_SIZE];
@@ -65,7 +82,15 @@ long long insere_no_hash(DiskManager& dm, Artigo& artigo, Logger& log) {
     while (true) {
         // 2. Lê o bloco atual do disco (1 acesso a disco)
         // O DiskManager.readBlock usa 'int' para o id_block
-        dm.readBlock(balde_id_atual, buffer);
+        if (!dm.readBlock(balde_id_atual, buffer)) {
+            // Se a leitura falhar, não podemos confiar no buffer. Abortar.
+            log.error("Falha critica ao ler bloco " + std::to_string(balde_id_atual) 
+                      + " durante insercao do ID " + std::to_string(artigo.getId()) 
+                      + ". Abortando insercao.");
+            // Retornar -1 (ou lançar uma exceção) para indicar erro grave.
+            return -1; 
+        }
+
         BlocoDeDados* bloco = reinterpret_cast<BlocoDeDados*>(buffer);
 
         // 3. Caso 1: Bloco tem espaço (Inserção sem overflow)
@@ -81,20 +106,23 @@ long long insere_no_hash(DiskManager& dm, Artigo& artigo, Logger& log) {
         // 4. Caso 2: Bloco está cheio, mas já tem ponteiro de overflow
         if (bloco->ponteiro_overflow != -1) {
             // Segue a cadeia de overflow
-            long long proximo_bloco = bloco->ponteiro_overflow;
-            log.debug("Colisão para ID " + std::to_string(artigo.getId()) + ". Seguindo para overflow no bloco " + std::to_string(proximo_bloco));
-            balde_id_atual = proximo_bloco;
-            continue; // Repete o loop para tentar o próximo bloco da cadeia
+            balde_id_atual = bloco->ponteiro_overflow;
+            continue; 
         }
 
         // 5. Caso 3: Bloco está cheio, e É o fim da cadeia (CRIAR NOVO BLOCO)
         
         // O próximo ID de bloco livre é o tamanho atual do arquivo (TOTAL BLOCKS)
-        long long novo_bloco_id = dm.getTotalBlocks(); 
+        long long novo_bloco_id = proximo_overflow_id;
+        proximo_overflow_id++;
         
         // (A) Atualiza o bloco atual para apontar para o novo
         bloco->ponteiro_overflow = novo_bloco_id;
-        dm.writeBlock(balde_id_atual, buffer); // Salva o novo ponteiro
+        if (!dm.writeBlock(balde_id_atual, buffer)) {
+             log.error("Falha critica ao escrever ponteiro de overflow no bloco " + std::to_string(balde_id_atual));
+             proximo_overflow_id--; // Desfaz o incremento do contador? Ou deixa inconsistente? Decisão de design.
+             return -1; // Indicar erro
+        }
         
         // (B) Cria o novo bloco de overflow na memória
         char buffer_novo[BLOCK_SIZE] = {0};
@@ -106,7 +134,11 @@ long long insere_no_hash(DiskManager& dm, Artigo& artigo, Logger& log) {
         bloco_novo->ponteiro_overflow = -1; // É o novo fim da cadeia
 
         // (C) Escreve o novo bloco no disco
-        dm.writeBlock(novo_bloco_id, buffer_novo);
+        if (!dm.writeBlock(balde_id_atual, buffer)) {
+             log.error("Falha critica ao escrever ponteiro de overflow no bloco " + std::to_string(balde_id_atual));
+             proximo_overflow_id--; // Desfaz o incremento do contador? Ou deixa inconsistente? Decisão de design.
+             return -1; // Indicar erro
+        }
         
         log.warn("Overflow para ID " + std::to_string(artigo.getId()) + ". Novo bloco criado e inserido em ID " + std::to_string(novo_bloco_id));
         return novo_bloco_id; // RETORNA O ID DO NOVO BLOCO DE OVERFLOW
