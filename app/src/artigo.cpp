@@ -1,4 +1,5 @@
 #include "artigo.h"
+#include <cstring> //Necessário para strncpy
 
 Artigo::Artigo(int id, const std::string& titulo, int ano,
             const std::string& autores, int citacoes,
@@ -35,6 +36,13 @@ void Artigo::setAutores(const std::string& v){
 }
 
 void Artigo::setTitulo(const std::string& v){
+    std::memset(titulo, 0, TAM_TITULO);
     std::strncpy(titulo, v.c_str(), TAM_TITULO);
     titulo[TAM_TITULO-1] = '\0';
+}
+
+void Artigo::setAtualizacao(const std::string& v) {
+    // Usa a mesma lógica segura dos outros setters
+    std::strncpy(atualizacao, v.c_str(), TAM_ATUALIZACAO - 1);
+    atualizacao[TAM_ATUALIZACAO - 1] = '\0';
 }

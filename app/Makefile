@@ -16,6 +16,7 @@ LOGGER_SRC = $(SRC_DIR)/logger.cpp
 ARTIGO_SRC = $(SRC_DIR)/artigo.cpp
 DISKMANAGER_SRC = $(SRC_DIR)/diskManager.cpp
 PARSER_SRC = $(SRC_DIR)/parser.cpp
+HASHING_SRC = $(SRC_DIR)/hashing.cpp #foi adicionado para teste do hash
 # Exemplo de novo módulo:
 # BPLUS_SRC = $(SRC_DIR)/bplus.cpp
 
@@ -24,11 +25,11 @@ CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++17 -I$(INC_DIR)
 
 # nome da imagem docker
-IMAGE_NAME = tp2-teste
+IMAGE_NAME = tp2
 
 # Nomes dos executáveis FINAIS (Requisitos do TP2)
 #PROGS = upload findrec seek1 seek2
-PROGS = upload
+PROGS = upload seek1 findrec seek2
 EXECS = $(addprefix $(BIN_DIR)/, $(PROGS))
 
 all: docker-build
@@ -36,21 +37,38 @@ all: docker-build
 # COMPILAR TESTES
 # Para incluir novos .cpp no build, adicione na lista de dependências e também
 # antes do "-o" na última linha (logo dps de $(PARSER_SRC)).
-$(BIN_DIR)/%: $(TEST_DIR)/%.cpp $(LOGGER_SRC) $(ARTIGO_SRC) $(DISKMANAGER_SRC) $(PARSER_SRC)
+$(BIN_DIR)/%: $(TEST_DIR)/%.cpp $(LOGGER_SRC) $(ARTIGO_SRC) $(DISKMANAGER_SRC) $(PARSER_SRC) $(HASHING_SRC)
 	@mkdir -p $(BIN_DIR)
 	@echo "Compilando teste: $< -> $@"
-	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(ARTIGO_SRC) $(DISKMANAGER_SRC) $(PARSER_SRC) -o $@
+	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(ARTIGO_SRC) $(DISKMANAGER_SRC) $(PARSER_SRC) $(HASHING_SRC) -o $@
 
 # Copie esta regra para criar novos binários (findrec, seek1, seek2)
 # Substitua 'upload' e adicione os arquivos .cpp na lista de dependências.
-$(BIN_DIR)/upload: $(SRC_DIR)/upload.cpp $(LOGGER_SRC) $(ARTIGO_SRC) $(DISKMANAGER_SRC) $(PARSER_SRC)
+$(BIN_DIR)/upload: $(SRC_DIR)/upload.cpp $(LOGGER_SRC) $(ARTIGO_SRC) $(DISKMANAGER_SRC) $(PARSER_SRC) $(HASHING_SRC)
 	@echo "Compilando upload: $< -> $@"
 	@mkdir -p $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(ARTIGO_SRC) $(DISKMANAGER_SRC) $(PARSER_SRC) -o $@
+	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(ARTIGO_SRC) $(DISKMANAGER_SRC) $(PARSER_SRC) $(HASHING_SRC) -o $@
+
+$(BIN_DIR)/seek1: $(SRC_DIR)/seek1.cpp $(LOGGER_SRC)
+	@echo "Compilando seek1: $< -> $@"
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(DISKMANAGER_SRC) -o $@
+
+$(BIN_DIR)/findrec: $(SRC_DIR)/findrec.cpp $(LOGGER_SRC) $(DISKMANAGER_SRC) $(ARTIGO_SRC)
+	@echo "Compilando findrec: $< -> $@"
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(DISKMANAGER_SRC) $(ARTIGO_SRC) -o $@
+
+$(BIN_DIR)/seek2: $(SRC_DIR)/seek2.cpp $(LOGGER_SRC) $(DISKMANAGER_SRC) $(ARTIGO_SRC)
+	@echo "Compilando seek2: $< -> $@"
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(DISKMANAGER_SRC) $(ARTIGO_SRC) -o $@
 
 
 # caminho padrao do csv, pode ser sobreescrito (make upload FILE=outro.csv)
 FILE ?= data/artigo.csv
+ID ?= 10
+TITLE ?= "On the Structure of Synergies in Cooperative Games."
 
 # compila todos os executaveis e testes (fora do docker)
 build: $(EXECS) $(TESTS_EXEC) 
@@ -58,7 +76,17 @@ build: $(EXECS) $(TESTS_EXEC)
 
 # execuções via docker:
 upload:
-	docker run --rm -v /data:/data tp2-teste /app/bin/upload $(FILE)
+	mkdir -p data/db
+	docker run --rm -v $(PWD)/data:/data $(IMAGE_NAME) /app/bin/upload $(FILE)
+
+seek1:
+	docker run --rm -v $(PWD)/data:/data $(IMAGE_NAME) /app/bin/seek1 $(ID)
+
+findrec:
+	docker run --rm -v $(PWD)/data:/data $(IMAGE_NAME) /app/bin/findrec $(ID)
+
+seek2:
+	docker run --rm -v $(PWD)/data:/data $(IMAGE_NAME) /app/bin/seek2 $(TITLE)
 
 # cria a imagem docker e executa o make build acima, mas dentro do container
 docker-build:
@@ -70,24 +98,25 @@ docker-rebuild:
 	-docker ps -q --filter "ancestor=$(IMAGE_NAME)" | xargs -r docker stop
 	-docker ps -a -q --filter "ancestor=$(IMAGE_NAME)" | xargs -r docker rm
 	@echo "Reconstruindo imagem docker ($(IMAGE_NAME))"
-	docker build . -t tp2-teste --no-cache
+	docker build . -t $(IMAGE_NAME) --no-cache
 
 # Para adicionar novos testes, copie uma linha, mude o echo e o binário.
+# executa os testes via docker, corrigindo problemas de espaço no caminho
 test: docker-build
 	@echo "Executando teste de log: LOG_LEVEL=debug"
-	docker run --rm $(IMAGE_NAME) /app/bin/test_logger
+	docker run --rm -v "$(PWD)/data:/data" $(IMAGE_NAME) /app/bin/test_logger
 
 	@echo "Executando teste da classe Artigo"
-	docker run --rm $(IMAGE_NAME) /app/bin/test_artigo
+	docker run --rm -v "$(PWD)/data:/data" $(IMAGE_NAME) /app/bin/test_artigo
 
 	@echo "Executando teste da classe DiskManager"
-	docker run --rm $(IMAGE_NAME) /app/bin/test_diskManager
+	docker run --rm -v "$(PWD)/data:/data" $(IMAGE_NAME) /app/bin/test_diskManager
 
 	@echo "Executando teste de Parser"
-	docker run --rm $(IMAGE_NAME) /app/bin/test_parser
+	docker run --rm -v "$(PWD)/data:/data" $(IMAGE_NAME) /app/bin/test_parser
 	
 	@echo "Executando teste de B+tree"
-	docker run --rm $(IMAGE_NAME) /app/bin/test_bplus
+	docker run --rm -v "$(PWD)/data:/data" $(IMAGE_NAME) /app/bin/test_bplus
 
 # regra para limpar bin
 clean:
