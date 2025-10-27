@@ -6,22 +6,27 @@
 #include <fstream>
 #include <iostream>
 #include <filesystem>
-// (Todos os includes de thread/mutex/queue foram removidos)
-
-// Índice Primário: Chave=int, Dado=long (offset)
-const int ORDEM_FOLHA_PRIMARIO = (BLOCK_SIZE - sizeof(CabecalhoPagina) - sizeof(int)) / (sizeof(int) + sizeof(long));
-const int ORDEM_INTERNA_PRIMARIO = (BLOCK_SIZE - sizeof(CabecalhoPagina)) / (sizeof(int) + sizeof(int)) - 1;
-
+#include "ChaveTitulo.h"
 
 // --- FUNÇÃO MAIN (SERIAL) ---
 int main(int argc, char**argv){
     Logger log_sys;
     std::filesystem::remove("/data/db/bplus_primario.idx");
     std::filesystem::remove("/data/db/arquivo_hash.dat");
+    std::filesystem::remove("/data/db/bplus_secundario.idx");
     
+    //check se o caminho/arquivo do usuario existe
+    std::string caminho = argv[1];
+    std::ifstream arq(caminho);
+    if(!arq.is_open()){
+        log_sys.error("Não foi possível abrir o arquivo: " +caminho);
+        return 1;
+    }
+
     // --- INICIALIZA OS DOIS DISK MANAGERS ---
     DiskManager diskPrimario("/data/db/bplus_primario.idx", log_sys);
-    DiskManager diskHash("/data/db/arquivo_hash.dat", log_sys); // DiskManager para o arquivo hash
+    DiskManager diskHash("/data/db/arquivo_hash.dat", log_sys);
+    DiskManager diskSecundario("/data/db/bplus_secundario.idx", log_sys);
 
     // --- NOVA SEÇÃO DE INICIALIZAÇÃO ---
     // (Assumindo que NUM_BALDES_PRIMARIOS está definido em algum header)
@@ -46,14 +51,8 @@ int main(int argc, char**argv){
         return 1;
     }
 
-    std::string caminho = argv[1];
-    std::ifstream arq(caminho);
-    if(!arq.is_open()){
-        log_sys.error("Não foi possível abrir o arquivo: " +caminho);
-        return 1;
-    }
-
-    BPlusTree<int, long, ORDEM_INTERNA_PRIMARIO, ORDEM_FOLHA_PRIMARIO> arvorePrimaria(diskPrimario, log_sys); // chave: ID, dado: offset
+    BPlusTree<int, long> arvorePrimaria(diskPrimario, log_sys);
+    BPlusTree<ChaveTitulo, long> arvoreSecundaria(diskSecundario, log_sys, false);
     std::string linha;
     int linhaNum = 0;
      // contadores
@@ -105,10 +104,9 @@ int main(int argc, char**argv){
             // 2. Insere no Hash (Trabalho de Disco - I/O)
             //    A CPU ficará esperando o disco terminar aqui.
             long long offset_real = insere_no_hash(diskHash, art, log_sys);
-
-            // 3. Insere na B+ Tree (Trabalho de CPU/Memória)
-            //    Usa o offset_real retornado pelo passo 2.
+            ChaveTitulo titulo(art.getTitulo());
             arvorePrimaria.inserirNoBuffer(art.getId(), offset_real);
+            arvoreSecundaria.inserirNoBuffer(titulo, offset_real);
             // --- FIM DA MUDANÇA ---
 
 
@@ -125,9 +123,10 @@ int main(int argc, char**argv){
     
     log_sys.info("Parsing do CSV finalizado. Fazendo flush do buffer da B+ Tree...");
     arvorePrimaria.flushBuffer(); // Salva o que restou no buffer da B+ Tree
-    
-    log_sys.info("Upload finalizado");
-    log_sys.finalizarTimer("Upload + indexação (serial)");
+    arvoreSecundaria.flushBuffer();
+
+    log_sys.debug("Upload finalizado");
+    log_sys.finalizarTimer("Upload + indexação");
     
     // resumo dos problemas
     log_sys.info("Resumo da qualidade dos dados:");

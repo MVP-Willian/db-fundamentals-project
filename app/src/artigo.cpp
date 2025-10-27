@@ -36,6 +36,7 @@ void Artigo::setAutores(const std::string& v){
 }
 
 void Artigo::setTitulo(const std::string& v){
+    std::memset(titulo, 0, TAM_TITULO);
     std::strncpy(titulo, v.c_str(), TAM_TITULO);
     titulo[TAM_TITULO-1] = '\0';
 }

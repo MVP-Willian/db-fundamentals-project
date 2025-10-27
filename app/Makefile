@@ -29,7 +29,7 @@ IMAGE_NAME = tp2
 
 # Nomes dos executáveis FINAIS (Requisitos do TP2)
 #PROGS = upload findrec seek1 seek2
-PROGS = upload seek1 findrec
+PROGS = upload seek1 findrec seek2
 EXECS = $(addprefix $(BIN_DIR)/, $(PROGS))
 
 all: docker-build
@@ -59,9 +59,16 @@ $(BIN_DIR)/findrec: $(SRC_DIR)/findrec.cpp $(LOGGER_SRC) $(DISKMANAGER_SRC) $(AR
 	@mkdir -p $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(DISKMANAGER_SRC) $(ARTIGO_SRC) -o $@
 
+$(BIN_DIR)/seek2: $(SRC_DIR)/seek2.cpp $(LOGGER_SRC) $(DISKMANAGER_SRC) $(ARTIGO_SRC)
+	@echo "Compilando seek2: $< -> $@"
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) $< $(LOGGER_SRC) $(DISKMANAGER_SRC) $(ARTIGO_SRC) -o $@
+
+
 # caminho padrao do csv, pode ser sobreescrito (make upload FILE=outro.csv)
 FILE ?= data/artigo.csv
 ID ?= 10
+TITLE ?= "On the Structure of Synergies in Cooperative Games."
 
 # compila todos os executaveis e testes (fora do docker)
 build: $(EXECS) $(TESTS_EXEC) 
@@ -72,12 +79,14 @@ upload:
 	mkdir -p data/db
 	docker run --rm -v $(PWD)/data:/data $(IMAGE_NAME) /app/bin/upload $(FILE)
 
-
 seek1:
 	docker run --rm -v $(PWD)/data:/data $(IMAGE_NAME) /app/bin/seek1 $(ID)
 
 findrec:
-	docker run --rm -v $(PWD)/data:/data tp2-teste /app/bin/findrec $(ID)
+	docker run --rm -v $(PWD)/data:/data $(IMAGE_NAME) /app/bin/findrec $(ID)
+
+seek2:
+	docker run --rm -v $(PWD)/data:/data $(IMAGE_NAME) /app/bin/seek2 $(TITLE)
 
 # cria a imagem docker e executa o make build acima, mas dentro do container
 docker-build:

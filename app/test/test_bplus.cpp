@@ -5,6 +5,7 @@
 #include <string>
 #include <cstring>
 #include <utility>
+#include "ChaveTitulo.h"
 
 // --- Arquivos de índice ---
 const std::string ARQUIVO_IDX_PRIMARIO = "arvore_primaria.idx";
@@ -12,30 +13,6 @@ const std::string ARQUIVO_IDX_SECUNDARIO = "arvore_secundaria.idx";
 
 // --- Definição da Chave do Índice Secundário (Título) ---
 const int TAMANHO_TITULO = 301; // alfa 300 + 1 para null terminator
-struct ChaveTitulo {
-    char titulo[TAMANHO_TITULO];
-
-    // Construtor para facilitar
-    ChaveTitulo(const std::string& s = "") {
-        strncpy(titulo, s.c_str(), TAMANHO_TITULO - 1);
-        titulo[TAMANHO_TITULO - 1] = '\0'; // Garante null termination
-    }
-
-    // Sobrecarga de operadores necessária para comparações na B+Tree
-    // (A B+Tree interna usará memcmp via keyCompare..., mas isso ajuda)
-    bool operator<(const ChaveTitulo& other) const {
-        return std::strcmp(titulo, other.titulo) < 0;
-    }
-    bool operator>=(const ChaveTitulo& other) const {
-        return std::strcmp(titulo, other.titulo) >= 0;
-    }
-    bool operator==(const ChaveTitulo& other) const {
-        return std::strcmp(titulo, other.titulo) == 0;
-    }
-    // Necessário para std::to_string_log na B+Tree
-    operator std::string() const { return std::string(titulo); }
-};
-
 
 // --- Cálculo das Ordens (Baseado em bplus.h e BLOCK_SIZE) ---
 
@@ -62,7 +39,7 @@ int main() {
     logger.info("Ordem Folha: " + std::to_string(ORDEM_FOLHA_PRIMARIO));
     { // Bloco para garantir que dm1 seja destruído e feche o arquivo
         DiskManager dm1(ARQUIVO_IDX_PRIMARIO, logger);
-        BPlusTree<int, long, ORDEM_INTERNA_PRIMARIO, ORDEM_FOLHA_PRIMARIO> arvore1(dm1, logger);
+        BPlusTree<int, long> arvore1(dm1, logger);
 
         std::vector<std::pair<int, long>> elementos = {
             {10, 1000}, {20, 2000}, {5, 500}, {6, 600}, {12, 1200}, {30, 3000},
@@ -111,7 +88,7 @@ int main() {
     logger.info("Ordem Folha: " + std::to_string(ORDEM_FOLHA_SECUNDARIO));
     {
         DiskManager dm2(ARQUIVO_IDX_SECUNDARIO, logger);
-        BPlusTree<ChaveTitulo, int, ORDEM_INTERNA_SECUNDARIO, ORDEM_FOLHA_SECUNDARIO> arvore2(dm2, logger, false);
+        BPlusTree<ChaveTitulo, int> arvore2(dm2, logger, false);
 
         std::vector<std::pair<std::string, int>> elementos_str = {
             {"Um título", 1111}, {"Outro título", 2222}, {"título bacanudo", 3333},

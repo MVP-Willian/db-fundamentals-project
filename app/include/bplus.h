@@ -7,6 +7,7 @@
 #include "logger.h"
 #include "diskManager.h"
 #include "artigo.h"
+#include "ChaveTitulo.h"
 
 //"metadados" sobre um nó
 struct CabecalhoPagina {
@@ -22,15 +23,11 @@ struct Superbloco {
     bool primaria;
 };
 
-const int ORDEM_INTERNA_INT = (BLOCK_SIZE - sizeof(CabecalhoPagina)) / (sizeof(int) + sizeof(int)) - 1; // ~509 
-const int ORDEM_FOLHA_INT_LONG = (BLOCK_SIZE - sizeof(CabecalhoPagina) - sizeof(int)) / (sizeof(int) + sizeof(long)); // ~340 
-const int TAMANHO_CHAVE_TITULO = 301; // Para char[300] + null
-const int ORDEM_INTERNA_CHAR300 = std::floor((BLOCK_SIZE - sizeof(CabecalhoPagina) - sizeof(int)) / (TAMANHO_CHAVE_TITULO + sizeof(int))); // = 13
-const int ORDEM_FOLHA_CHAR300_INT = std::floor((BLOCK_SIZE - sizeof(CabecalhoPagina) - sizeof(int)) / (TAMANHO_CHAVE_TITULO + sizeof(int))); // = 13
-
-template <typename Chave, typename Dado, int ORDEM_INTERNA, int ORDEM_FOLHA>
+template <typename Chave, typename Dado>
 class BPlusTree {
 private:
+    static constexpr int ORDEM_FOLHA   = (BLOCK_SIZE - sizeof(CabecalhoPagina) - sizeof(int)) / (sizeof(Chave) + sizeof(Dado));
+    static constexpr int ORDEM_INTERNA = (BLOCK_SIZE - sizeof(CabecalhoPagina)) / (sizeof(Chave) + sizeof(int)) - 1;
     int idBlocoRaiz;
     DiskManager& dm;
     Logger& logger;
@@ -419,8 +416,11 @@ private:
         funcao auxiliar, converte chave pra string só pra mostrar nos logs
     */
     std::string to_string_log(const Chave& val) {
-        if constexpr (std::is_convertible_v<Chave, std::string>) {
-            return std::string(val); 
+        if constexpr (std::is_same_v<Chave, ChaveTitulo>) {
+            return val.toString(); 
+        }
+        else if constexpr (std::is_convertible_v<Chave, std::string>){
+            return std::string(val);
         }
         // Se for um tipo numérico (int, long)
         else {
